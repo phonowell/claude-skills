@@ -43,6 +43,7 @@ pnpm task sync    # 同步 skills（双向 ~/.claude/skills）
 
 ## Skill 使用
 
+- invoke-opencode-acp：≥2 文件修改/复杂任务/git 操作优先委托（节省 tokens）
 - optimize-claude-md：优化 CLAUDE.md
 - optimize-docs：压缩通用文档
 - optimize-skill：创建/重构 skill

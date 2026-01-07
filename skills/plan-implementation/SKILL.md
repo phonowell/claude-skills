@@ -20,6 +20,12 @@ allowed-tools: Read, Grep, Glob, AskUserQuestion, Write, Edit
 
 **简单度评估**：单文件单函数修改 + 明确需求 + 无架构决策 → 提示用户"任务较简单，建议直接执行（节省 ~10K tokens / $0.5）· 继续计划？"
 
+**典型简单任务**：添加测试用例（已有代码结构）· 单文件格式化 · 明确配置修改 → 直接执行
+
+**委托评估**：≥2 文件修改/批量操作/独立子任务/复杂推理 → 优先使用 `invoke-opencode-acp` skill 委托（节省主进程 tokens）
+
+**激进策略**：Claude Code 环境默认委托复杂任务（~6s 开销可接受），仅单文件快速修改直接执行
+
 ### 2. 文件规划（≥3步任务）
 
 **为何需要文件**：简单任务 TodoWrite 即可 · 复杂任务（≥3步/研究/多次工具调用）需持久化追踪目标，50+ 工具调用后避免遗忘原始目标
@@ -30,9 +36,11 @@ allowed-tools: Read, Grep, Glob, AskUserQuestion, Write, Edit
 - `notes.md`：研究数据不塞上下文
 - `[deliverable].md`：完成时创建
 
+**文件路径约束**：必须创建在**项目/当前工作目录**，禁止创建在 skill 目录（~/.claude/skills/plan-implementation）
+
 **核心循环**（≥3步骤任务强制执行）：
 
-1. Write task_plan.md（初始化）
+1. Write task_plan.md（初始化，项目目录）
 2. **每轮开始前** Read task_plan.md（刷新注意力，避免偏离目标）
 3. **每轮完成后** Edit task_plan.md（标记进度/记录错误/更新状态）
 4. **禁止** 用 TodoWrite 替代 task_plan.md（复杂任务必须持久化）
@@ -61,6 +69,8 @@ Grep/Read 搜索代码 · <100行读全 · >200行分段 · **禁重复读**（�
 ### 7. 执行实现
 
 **执行前检查**（复杂任务）：Read task_plan.md 确认当前阶段/目标
+
+**委托子任务**：若识别批量操作（≥5文件）/独立模块/并行任务 → 立即使用 `invoke-opencode-acp` skill 委托（节省主进程 tokens/加速执行）
 
 严格按计划 · ~~简单任务 TodoWrite~~ **≥3步骤强制 task_plan.md**（TodoWrite 仅用于简单任务） · **批量操作模式**（批量 Read → 批量 Edit → 单次验证，减少重复读取）· Edit 无依赖批量调用 · 需调整立即中断 `AskUserQuestion` · 失败分析根因回退（同文件≥3次停止）
 
