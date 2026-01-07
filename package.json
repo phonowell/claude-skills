@@ -6,15 +6,6 @@
     "ts-morph": "^27.0.2",
     "tsx": "^4.21.0"
   },
-  "scripts": {
-    "lint": "eslint \"src/**/*.{ts,tsx}\" \"tasks/**/*.ts\" --fix",
-    "push": "pnpm task push",
-    "task": "tsx tasks/index.ts",
-    "start": "tsx src/index.ts",
-    "sync": "tsx src/index.ts",
-    "test": "vitest",
-    "type-check": "tsc --noEmit"
-  },
   "devDependencies": {
     "@types/node": "^25.0.3",
     "@typescript-eslint/eslint-plugin": "^8.52.0",
@@ -27,6 +18,18 @@
     "eslint-plugin-react-refresh": "^0.4.26",
     "eslint-plugin-unused-imports": "^4.3.0",
     "globals": "^17.0.0",
+    "typescript": "^5.9.3",
+    "unplugin-auto-import": "^20.3.0",
     "vitest": "^4.0.16"
-  }
+  },
+  "scripts": {
+    "lint": "eslint \"src/**/*.{ts,tsx}\" \"tasks/**/*.ts\" --fix",
+    "push": "pnpm task push",
+    "start": "tsx src/index.ts",
+    "sync": "tsx src/index.ts",
+    "task": "tsx tasks/index.ts",
+    "test": "vitest",
+    "type-check": "tsc --noEmit"
+  },
+  "type": "module"
 }

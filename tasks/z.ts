@@ -1,8 +1,8 @@
-import { glob } from 'fire-keeper'
+import { normalizePath } from 'fire-keeper'
 
-const main = async () => {
-  const list = await glob('.claude/**/*')
-  console.log(list)
+const main = () => {
+  const path = normalizePath('~/.claude/skills')
+  console.log('path:', path)
 }
 
 export default main
