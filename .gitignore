@@ -1,0 +1,29 @@
+# 依赖相关
+/node_modules
+
+# 构建与测试产物
+/dist
+/coverage
+/.cache
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+.nyc_output
+__generated__
+junit.xml
+/stats.html
+
+# 环境与配置
+.env
+.env.*
+!.env.example
+
+# IDE/系统文件
+/.vscode
+.DS_Store
+.trae
+
+# 临时文件
+*.log
+*.temp
+*.tmp
+/temp
