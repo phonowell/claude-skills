@@ -1,57 +1,77 @@
 ---
 name: invoke-opencode-acp
-description: 委托任务给 opencode subagent 节省 tokens，use when delegating tasks to opencode
+description: Delegate complex tasks to OpenCode subagent (saves main agent tokens)
 allowed-tools: Bash
 ---
 
 # invoke-opencode-acp
 
-## 何时使用
+## When to Use
 
-**激进策略**：≥2 文件修改/复杂任务优先委托 · 节省主进程 tokens（~6s 开销可接受）
+**Aggressive delegation**: ≥2 file modifications or complex tasks · saves main agent tokens (~6s overhead acceptable)
 
-**适用场景**：重构 · 批量操作 · 代码审查 · 多文件修改 · 独立子任务 · 多轮推理 · git 操作（commit/push/PR）
+**Applicable scenarios**: Refactoring · batch operations · code review · multi-file changes · independent subtasks · multi-step reasoning · git operations (commit/push/PR)
 
-**不适用**：单文件快速修改 · OpenCode 中禁用（避免递归）
+**Not applicable**: Single-file quick edits · avoid recursive calls within OpenCode
 
-**关键**：提供最小必要上下文（目标）· 让 subagent 自主分析（路径/格式/细节）
+**Key principle**: Provide minimal context (objectives only) · let subagent autonomously analyze (paths/formats/details)
 
-## 效率优先
+## Efficiency Priority
 
-`acp_client.py`（本目录）> 手动协议 · `opencode acp` > run/serve（避免 HTTP）
+`acp_client.py` (this directory) > manual protocol · `opencode acp` > run/serve (avoid HTTP)
 
-## 协议关键
+## Protocol Essentials
 
-**流程**：启动 `opencode acp` → initialize（protocolVersion: 1 数字）→ session/new（mcpServers: [] 数组）→ session/prompt（prompt: [] 数组，非 content）→ 监听 session/update
+**Flow**: Launch `opencode acp` → initialize (protocolVersion: 1 numeric) → session/new (mcpServers: [] array) → session/prompt (prompt: [] array, not content) → listen for session/update
 
-**错误码**：-32001 未找到 · -32002 拒绝 · -32003 状态 · -32004 不支持 · -32601 方法 · -32602 参数
+**Error codes**: -32001 not found · -32002 rejected · -32003 state · -32004 unsupported · -32601 method · -32602 params
 
-**约束**：持续监听流式更新 · select/非阻塞 IO · 独立 sessionId 并发 · terminate/kill 退出
+**Constraints**: Continuous streaming · select/non-blocking IO · independent sessionId for concurrency · terminate/kill for cleanup
 
-## 调用方式
+## Usage
 
-**Bash**（推荐）：
+### Interactive Mode (Recommended, supports timeout decisions)
+
+**Launch task in background**:
 ```bash
-python3 ~/.claude/skills/invoke-opencode-acp/acp_client.py "$PWD" "任务" || echo "✗ 失败"
+python3 ~/.claude/skills/invoke-opencode-acp/acp_client.py "$PWD" "task description" -o /tmp/opencode_output.txt
 ```
 
-**参数**：`-q` 静默 · `-v` 详细 · `-t 120` 超时（默认120s）· `-o FILE` 输出 · `-m MODEL` 模型（v1.1.4 被忽略）
+**Main agent check loop** (every 5 minutes):
+1. Use `Bash(..., run_in_background=True)` to start task, get task_id
+2. Use `TaskOutput(task_id, block=True, timeout=300000)` to wait 5 min
+3. Check status:
+   - If `status == "completed"`: Read output file, return result
+   - If `status == "running"`: AskUserQuestion whether to continue
+     - User chooses continue: repeat step 2
+     - User chooses terminate: `KillShell(task_id)` auto-cleanup
 
-**超时设置**：根据任务复杂度调整 `-t` 参数，避免超时失败
-- 简单任务：120-300s（默认）
-- 复杂重构：600-900s  
-- 多文件批量：900-1800s
-- 建议保守设置，宁可等待也不要超时
+**Advantages**:
+- Maintains OpenCode session without interruption
+- User can decide at each checkpoint
+- Main agent can auto-kill and cleanup processes
 
-**Python**：
-```python
-from acp_client import ACPClient
-output, count = ACPClient(quiet=True).execute_task("/path", "task", timeout=120)
+### One-shot Mode (for quick tasks)
+
+```bash
+python3 ~/.claude/skills/invoke-opencode-acp/acp_client.py "$PWD" "task" -o /tmp/output.txt -t 300
 ```
 
-**限制**：model_id 预留但当前无效（默认 big-pickle）
+**Parameters**:
+- `-o FILE` (required): Output file path, **avoids polluting main agent context**
+- `-t SECONDS`: Timeout in seconds (default: 1800s = 30 min)
+- `-v`: Verbose mode, protocol messages to stderr (for debugging)
 
-## 返回信息
+**Token optimization**: Subagent output auto-injected with constraints (summary-first · filter thinking · key results only)
 
-✓ 已完成 subagent 调用
-✗ 中断：{原因}（协议错误/超时/进程退出）
+## Output
+
+**Interactive mode**:
+- Task running: Ask every 5 min whether to continue
+- User confirms continue: Extend wait time
+- User chooses terminate: Auto-kill process
+- Task completed: ✓ Subagent task completed
+
+**One-shot mode**:
+- ✓ Subagent task completed
+- ✗ Timeout/Error: {reason}
