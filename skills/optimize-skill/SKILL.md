@@ -31,7 +31,9 @@ allowed-tools: Read, Glob, Write, Edit, Bash
 
 ### 1. 确认需求（强制）
 
-调用 `plan-implementation` skill 确认意图（目标/范围/优先级）· 已满足需求时直接告知
+- 简单任务（单文件 + 明确需求）→ `AskUserQuestion` 确认意图
+- 复杂任务（多文件/架构决策）→ 调用 `plan-implementation`
+- 已满足需求 → 直接告知
 
 ### 2. 定位与规划
 
