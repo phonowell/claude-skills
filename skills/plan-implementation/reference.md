@@ -1,7 +1,5 @@
 # Reference: Manus Context Engineering Principles
 
-基于 Manus（Meta 2025/12 以 $2B 收购）的上下文工程原则
-
 ## Manus 6 原则
 
 ### 1. 文件系统作为外部存储
@@ -54,14 +52,19 @@ Manus 持续循环：分析 → 思考 → 选工具 → 执行 → 观察 → �
 
 **文件操作时机**：`write` 新文件/完全重写 · `append` 增量添加 · `edit` 更新特定部分（checkbox/status）· `read` 决策前复查
 
-## 统计数据
+## 操作化指引
 
-- 平均 50 工具调用/任务 · 输入输出比 100:1 · Meta 收购价 $2B · 8个月达 $100M 营收
+- 仅追加：追加新上下文，禁止改写历史，避免 KV 缓存失效
+- 重复读取：决策前 Read task_plan.md，让目标进入窗口；多轮后重复，避免遗忘
+- 保留错误：Errors Encountered 记录真实失败及处理，禁止静默重试
+- 变换措辞：重复任务时改写提示，防模式固化；避免盲目 few-shot 复制
+- 稳定前缀：静态内容前置，补充信息仅追加；保持路径/命令格式一致
 
-## 关键引用
+## 小清单
 
-> "模型进步是涨潮，我们要做船，不是困在海底的桩"
-> "复杂任务时我将笔记/代码/发现存文件，工作时引用"
-> "用 edit 更新计划 checkbox，而非重写整个文件"
-
-**来源**：https://manus.im/de/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus
+- [ ] 决策前 Read 计划（task_plan.md）
+- [ ] 失败记录在 Errors，而非删除/隐藏
+- [ ] 新增上下文只追加，不改历史
+- [ ] 重复任务时改写提示，防过拟合
+- [ ] 输出路径/命令格式一致
+- [ ] 返回前自检计划/笔记已更新

@@ -31,7 +31,7 @@ allowed-tools: Bash, Read, Write, Edit
 
 ### 1. 创建 worktree
 
-**有未提交变更时**：
+**有未提交变更时（慎用，避免污染）**：
 ```bash
 git stash                                                # 暂存变更
 git worktree add ../project-feature feature-branch       # 创建 worktree
@@ -44,7 +44,7 @@ git worktree add ../project-feature feature-branch       # 现有分支
 git worktree add -b hotfix-123 ../project-hotfix main    # 新建分支
 ```
 
-**路径规范**：`../<project>-<branch-suffix>` · 与主目录同级
+**路径规范**：`../<project>-<branch-suffix>` · 与主目录同级（示例：`../repo-main`，`../repo-hotfix-123`）
 
 ### 2. 并行工作
 
@@ -97,4 +97,4 @@ git worktree prune
 
 ## 返回信息
 
-输出 worktree 操作结果或错误信息
+输出示例：`✓ worktree add ../repo-hotfix-123 (branch hotfix-123)` / `✗ clean failed: local branch not deleted`

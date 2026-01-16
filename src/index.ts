@@ -4,7 +4,7 @@ import { overwriteFile, promptAction } from '../tasks/mimiko/operations.js'
 
 const LOCAL_PATH = 'skills'
 const REMOTE_PATH = '~/.claude/skills'
-const IGNORE_PATTERNS = ['.DS_Store']
+const IGNORE_PATTERNS = ['.DS_Store', 'settings.local.json']
 
 const shouldIgnore = (filePath: string): boolean =>
   IGNORE_PATTERNS.some((pattern) => filePath.includes(pattern))
