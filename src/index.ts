@@ -1,4 +1,4 @@
-import { copy, echo, getName, glob, isSame, stat } from 'fire-keeper'
+import { copy, echo, getName, glob, home, isSame, stat } from 'fire-keeper'
 
 import { overwriteFile, promptAction } from '../tasks/mimiko/operations.js'
 
@@ -72,6 +72,48 @@ const syncFile = async (
   }
 }
 
+const linkSkills = async () => {
+  const source = `${home()}/.claude/skills`
+  const targets = [`${home()}/.codex/skills`, `${home()}/.trae-cn/skills`]
+  const { lstat, readlink, rename, symlink, unlink } =
+    await import('node:fs/promises')
+
+  for (const target of targets) {
+    let needRelink = false
+    try {
+      const targetStat = await lstat(target)
+      if (targetStat.isSymbolicLink()) {
+        const existingSource = await readlink(target)
+        if (existingSource === source) {
+          echo(`Skip **${target}** -> **${source}** (already linked)`)
+          continue
+        }
+        await unlink(target)
+        needRelink = true
+      } else {
+        await unlink(target)
+        needRelink = true
+      }
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
+    }
+
+    try {
+      await symlink(source, target)
+      echo(`Linked **${target}** -> **${source}**`)
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'EEXIST' && needRelink) {
+        const backup = `${target}.bak.${Date.now()}`
+        await rename(target, backup)
+        await symlink(source, target)
+        echo(
+          `Moved **${target}** to **${backup}**, linked **${target}** -> **${source}**`,
+        )
+      } else throw err
+    }
+  }
+}
+
 const main = async () => {
   const localFiles = await collectAllFiles(`./${LOCAL_PATH}`, LOCAL_PATH)
   const remoteFiles = await collectAllFiles(REMOTE_PATH, '.claude/skills')
@@ -84,6 +126,8 @@ const main = async () => {
 
     await syncFile(localPath, remotePath)
   }
+
+  await linkSkills()
 }
 
 main()
