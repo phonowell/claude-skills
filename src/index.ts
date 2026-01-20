@@ -5,6 +5,7 @@ import { overwriteFile, promptAction } from '../tasks/mimiko/operations.js'
 const LOCAL_PATH = 'skills'
 const REMOTE_PATH = '~/.claude/skills'
 const IGNORE_PATTERNS = ['.DS_Store', 'settings.local.json']
+const IS_TEST = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test'
 
 const shouldIgnore = (filePath: string): boolean =>
   IGNORE_PATTERNS.some((pattern) => filePath.includes(pattern))
@@ -74,7 +75,11 @@ const syncFile = async (
 
 const linkSkills = async () => {
   const source = `${home()}/.claude/skills`
-  const targets = [`${home()}/.codex/skills`, `${home()}/.trae-cn/skills`]
+  const targets = [
+    `${home()}/.codex/skills`,
+    `${home()}/.trae-cn/skills`,
+    `${home()}/.cursor/skills`,
+  ]
   const { lstat, readlink, rename, symlink, unlink } =
     await import('node:fs/promises')
 
@@ -127,9 +132,9 @@ const main = async () => {
     await syncFile(localPath, remotePath)
   }
 
-  await linkSkills()
+  if (!IS_TEST) await linkSkills()
 }
 
-main()
+if (!IS_TEST) main()
 
 export default main
