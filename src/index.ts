@@ -1,10 +1,12 @@
+import { dirname } from 'node:path'
+
 import { copy, echo, getName, glob, home, isSame, stat } from 'fire-keeper'
 
 import { overwriteFile, promptAction } from '../tasks/mimiko/operations.js'
 
 const LOCAL_PATH = 'skills'
 const REMOTE_PATH = '~/.claude/skills'
-const IGNORE_PATTERNS = ['.DS_Store', 'settings.local.json']
+const IGNORE_PATTERNS = ['.DS_Store', 'settings.local.json', '/.system/']
 const IS_TEST = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test'
 
 const shouldIgnore = (filePath: string): boolean =>
@@ -84,6 +86,13 @@ const linkSkills = async () => {
     await import('node:fs/promises')
 
   for (const target of targets) {
+    const parentDir = dirname(target)
+    const parentStat = await stat(parentDir)
+    if (!parentStat?.isDirectory()) {
+      echo(`Skip **${target}** (missing dir **${parentDir}**)`)
+      continue
+    }
+
     let needRelink = false
     try {
       const targetStat = await lstat(target)
