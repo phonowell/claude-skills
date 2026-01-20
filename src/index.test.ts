@@ -1,43 +1,55 @@
-import { glob, stat } from 'fire-keeper'
+import { lstat, readlink, rename, symlink, unlink } from 'node:fs/promises'
+import { posix } from 'node:path'
+
+import { glob, home, stat } from 'fire-keeper'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { overwriteFile, promptAction } from '../tasks/mimiko/operations.js'
 
-import main from './index.js'
+import main, { linkSkills } from './index.js'
 
 import type { Stats } from 'node:fs'
+
+type MockStatOptions = {
+  isFile?: boolean
+  isDirectory?: boolean
+  isSymbolicLink?: boolean
+}
 
 type ListSource = string[] & {
   __IS_LISTED_AS_SOURCE__: true
 }
 
-const createMockStats = (): Stats => ({
-  isFile: () => true,
-  isDirectory: () => false,
-  isBlockDevice: () => false,
-  isCharacterDevice: () => false,
-  isSymbolicLink: () => false,
-  isFIFO: () => false,
-  isSocket: () => false,
-  dev: 0,
-  ino: 0,
-  mode: 0,
-  nlink: 0,
-  uid: 0,
-  gid: 0,
-  rdev: 0,
-  size: 0,
-  blksize: 0,
-  blocks: 0,
-  atimeMs: 0,
-  mtimeMs: 0,
-  ctimeMs: 0,
-  birthtimeMs: 0,
-  atime: new Date(),
-  mtime: new Date(),
-  ctime: new Date(),
-  birthtime: new Date(),
-})
+const createMockStats = (options: MockStatOptions = {}): Stats => {
+  const { isFile = true, isDirectory = false, isSymbolicLink = false } = options
+  return {
+    isFile: () => isFile,
+    isDirectory: () => isDirectory,
+    isBlockDevice: () => false,
+    isCharacterDevice: () => false,
+    isSymbolicLink: () => isSymbolicLink,
+    isFIFO: () => false,
+    isSocket: () => false,
+    dev: 0,
+    ino: 0,
+    mode: 0,
+    nlink: 0,
+    uid: 0,
+    gid: 0,
+    rdev: 0,
+    size: 0,
+    blksize: 0,
+    blocks: 0,
+    atimeMs: 0,
+    mtimeMs: 0,
+    ctimeMs: 0,
+    birthtimeMs: 0,
+    atime: new Date(),
+    mtime: new Date(),
+    ctime: new Date(),
+    birthtime: new Date(),
+  }
+}
 
 const setupMockGlob = (localPaths: string[], remotePaths: string[]) => {
   vi.mocked(glob).mockImplementation((input) => {
@@ -67,10 +79,19 @@ vi.mock('fire-keeper', async (importOriginal) => {
     copy: vi.fn(),
     echo: vi.fn(),
     glob: vi.fn() as typeof glob,
+    home: vi.fn(),
     isSame: vi.fn(() => Promise.resolve(false)),
     stat: vi.fn() as typeof stat,
   }
 })
+
+vi.mock('node:fs/promises', () => ({
+  lstat: vi.fn(),
+  readlink: vi.fn(),
+  rename: vi.fn(),
+  symlink: vi.fn(),
+  unlink: vi.fn(),
+}))
 
 vi.mock('../tasks/mimiko/operations.js', () => ({
   overwriteFile: vi.fn(),
@@ -83,11 +104,10 @@ describe('sync', () => {
   })
 
   it('should call promptAction with (local, remote) when files differ', async () => {
-    const { join } = await import('node:path')
     const { homedir } = await import('node:os')
     const cwd = process.cwd()
-    const localPath = join(cwd, 'skills', 'test.md')
-    const remotePath = join(homedir(), '.claude', 'skills', 'test.md')
+    const localPath = posix.join(cwd, 'skills', 'test.md')
+    const remotePath = posix.join(homedir(), '.claude', 'skills', 'test.md')
 
     setupMockGlob([localPath], [remotePath])
     setupMockStat()
@@ -103,11 +123,10 @@ describe('sync', () => {
   })
 
   it('should call overwriteFile with correct action', async () => {
-    const { join } = await import('node:path')
     const { homedir } = await import('node:os')
     const cwd = process.cwd()
-    const localPath = join(cwd, 'skills', 'test.md')
-    const remotePath = join(homedir(), '.claude', 'skills', 'test.md')
+    const localPath = posix.join(cwd, 'skills', 'test.md')
+    const remotePath = posix.join(homedir(), '.claude', 'skills', 'test.md')
 
     setupMockGlob([localPath], [remotePath])
     setupMockStat()
@@ -124,9 +143,8 @@ describe('sync', () => {
   })
 
   it('should call promptAction with ("", remote) when only remote exists', async () => {
-    const { join } = await import('node:path')
     const { homedir } = await import('node:os')
-    const remotePath = join(homedir(), '.claude', 'skills', 'test.md')
+    const remotePath = posix.join(homedir(), '.claude', 'skills', 'test.md')
 
     setupMockGlob([], [remotePath])
     setupMockStat()
@@ -142,9 +160,8 @@ describe('sync', () => {
   })
 
   it('should call promptAction with (local, "") when only local exists', async () => {
-    const { join } = await import('node:path')
     const cwd = process.cwd()
-    const localPath = join(cwd, 'skills', 'test.md')
+    const localPath = posix.join(cwd, 'skills', 'test.md')
 
     setupMockGlob([localPath], [])
     setupMockStat()
@@ -157,5 +174,52 @@ describe('sync', () => {
     const call = calls[0]
     expect(call[0]).toContain('skills')
     expect(call[1]).toBe('')
+  })
+})
+
+const describeLinkSkills =
+  process.platform === 'win32' ? describe : describe.skip
+
+describeLinkSkills('linkSkills', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('treats win32 readlink output as already linked', async () => {
+    vi.mocked(home).mockReturnValue('C:/Users/test')
+    vi.mocked(stat).mockResolvedValue(
+      createMockStats({ isFile: false, isDirectory: true }),
+    )
+    vi.mocked(lstat).mockResolvedValue(
+      createMockStats({ isFile: false, isSymbolicLink: true }),
+    )
+    vi.mocked(readlink).mockResolvedValue(
+      '\\\\?\\C:\\Users\\test\\.claude\\skills',
+    )
+
+    await linkSkills()
+
+    expect(vi.mocked(unlink).mock.calls.length).toBe(0)
+    expect(vi.mocked(rename).mock.calls.length).toBe(0)
+    expect(vi.mocked(symlink).mock.calls.length).toBe(0)
+  })
+
+  it('treats win32 UNC readlink output as already linked', async () => {
+    vi.mocked(home).mockReturnValue('\\\\server\\share\\user')
+    vi.mocked(stat).mockResolvedValue(
+      createMockStats({ isFile: false, isDirectory: true }),
+    )
+    vi.mocked(lstat).mockResolvedValue(
+      createMockStats({ isFile: false, isSymbolicLink: true }),
+    )
+    vi.mocked(readlink).mockResolvedValue(
+      '\\\\?\\UNC\\server\\share\\user\\.claude\\skills',
+    )
+
+    await linkSkills()
+
+    expect(vi.mocked(unlink).mock.calls.length).toBe(0)
+    expect(vi.mocked(rename).mock.calls.length).toBe(0)
+    expect(vi.mocked(symlink).mock.calls.length).toBe(0)
   })
 })

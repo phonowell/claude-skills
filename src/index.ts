@@ -1,6 +1,14 @@
-import { dirname } from 'node:path'
-
-import { copy, echo, getName, glob, home, isSame, stat } from 'fire-keeper'
+import {
+  copy,
+  echo,
+  getDirname,
+  getName,
+  glob,
+  home,
+  isSame,
+  normalizePath,
+  stat,
+} from 'fire-keeper'
 
 import { overwriteFile, promptAction } from '../tasks/mimiko/operations.js'
 
@@ -82,11 +90,20 @@ const linkSkills = async () => {
     `${home()}/.trae-cn/skills`,
     `${home()}/.cursor/skills`,
   ]
+  const linkType: 'junction' | undefined =
+    process.platform === 'win32' ? 'junction' : undefined
+  const normalizeLinkPath = (value: string) => {
+    const normalized = normalizePath(value)
+    if (process.platform !== 'win32') return normalized
+    const withoutUncPrefix = normalized.replace(/^\/\/\?\/UNC\//i, '//')
+    const withoutPrefix = withoutUncPrefix.replace(/^\/\/\?\//i, '')
+    return withoutPrefix.toLowerCase()
+  }
   const { lstat, readlink, rename, symlink, unlink } =
     await import('node:fs/promises')
 
   for (const target of targets) {
-    const parentDir = dirname(target)
+    const parentDir = getDirname(target)
     const parentStat = await stat(parentDir)
     if (!parentStat?.isDirectory()) {
       echo(`Skip **${target}** (missing dir **${parentDir}**)`)
@@ -94,18 +111,20 @@ const linkSkills = async () => {
     }
 
     let needRelink = false
+    let movedBackup: string | null = null
     try {
       const targetStat = await lstat(target)
       if (targetStat.isSymbolicLink()) {
         const existingSource = await readlink(target)
-        if (existingSource === source) {
+        if (normalizeLinkPath(existingSource) === normalizeLinkPath(source)) {
           echo(`Skip **${target}** -> **${source}** (already linked)`)
           continue
         }
         await unlink(target)
         needRelink = true
       } else {
-        await unlink(target)
+        movedBackup = `${target}.bak.${Date.now()}`
+        await rename(target, movedBackup)
         needRelink = true
       }
     } catch (err) {
@@ -113,13 +132,17 @@ const linkSkills = async () => {
     }
 
     try {
-      await symlink(source, target)
-      echo(`Linked **${target}** -> **${source}**`)
+      await symlink(source, target, linkType)
+      if (movedBackup) {
+        echo(
+          `Moved **${target}** to **${movedBackup}**, linked **${target}** -> **${source}**`,
+        )
+      } else echo(`Linked **${target}** -> **${source}**`)
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'EEXIST' && needRelink) {
         const backup = `${target}.bak.${Date.now()}`
         await rename(target, backup)
-        await symlink(source, target)
+        await symlink(source, target, linkType)
         echo(
           `Moved **${target}** to **${backup}**, linked **${target}** -> **${source}**`,
         )
@@ -146,4 +169,5 @@ const main = async () => {
 
 if (!IS_TEST) main()
 
+export { linkSkills }
 export default main
