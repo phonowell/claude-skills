@@ -6,64 +6,43 @@ description: 指导使用 fire-keeper 库函数替代原生 Node.js API，use wh
 # use-fire-keeper
 
 ## 何时使用
+- 需要用 fire-keeper 替代 fs/path/child_process/os
+- 处理批量文件/并发/日志/CLI/下载/压缩/监听
+- 需要 ./ . ~ .. ! 前缀解析或路径简化输出
 
-脚本任务涉及：文件批量操作 · 路径规范化/项目根路径解析 · 并发执行异步任务（限流） · YAML 配置读取 · 文件监听/压缩/下载 · 交互式命令行提示
+## 核心意图
+统一文件/路径/并发/日志行为，复用项目内已验证的边界处理
 
 ## 效率优先
+fire-keeper API > 原生 Node.js API
 
-fire-keeper 工具函数 > 原生 Node.js API（fs/path/child_process/os）
+## 核心约束
+- 路径走 `normalizePath` 规则：支持 ./ . ~ .. ! · 空/空白返回 '' · 自动转绝对 + `/`
+- 禁手动 `join(root(), ...)`；直接传 `./` 或 `~` 前缀字符串
+- `glob` 默认 `onlyFiles: true` + `dot: true`；目录需 `{ onlyFiles: false }`
+- `glob` 返回 `ListSource`（`__IS_LISTED_AS_SOURCE__`），可缓存复用
+- 无匹配：`echo(tag, \`no files found matching ${wrapList(source)}\`)` 后 `return`
+- `copy` 同目录默认加 `.copy`；target 支持 string/函数；options 支持 filename/concurrency
+- `remove` 支持目录/通配符；`clean` 会清理空父目录
+- `backup/recover` 统一 `.bak`；recover 读 *.bak → 写回 → 删除
+- `read` 只取首个 glob 匹配；文本→string，json/yaml→object，raw→Buffer；无文件返回 undefined
+- `write` 支持 string/Buffer/ArrayBuffer/Blob/对象(JSON.stringify)；自动建目录
+- `runConcurrent` 保序；`stopOnError=true` 早停；默认抛 `AggregateError`
+- `watch`（chokidar v4）不支持 glob；仅 `change`；返回 `unwatch`；支持 debounce
+- `exec` 用 `/bin/sh` 或 PowerShell；数组命令用 `; ` 串行；返回 `[code,last,all]`
+- `download` 需 url+dir；arrayBuffer→Buffer（大文件注意内存）
+- `isExist` 禁 `*`；任一路径无效/不存在→false
+- `isSame` 需 ≥2 文件；size=0 或读取失败→false；Buffer 比较
+- `echo` 简化路径 `root→.` `home→~`；`**xx**` 高亮；`freeze/whisper/pause/resume`
+- `prompt` 缓存 `./temp/cache-prompt.json`（multi 不缓存）
 
-## 核心 API
+## 工作流程
+1. 识别需求类型：文件/路径/并发/CLI/网络/压缩/监听
+2. 选 API：文件 `copy/move/remove/clean/mkdir/read/write/backup/recover/stat/isExist/isSame` · 路径 `normalizePath/root/home/getName/getBasename/getDirname/getExtname/getFilename` · 并发 `runConcurrent` · CLI `echo/wrapList/prompt/argv/exec` · 其他 `glob/zip/download/watch`
+3. 批量处理：`glob` → 空结果按约束回显并 return → `runConcurrent`
+4. 输出策略：默认 `echo`；需静默用 `freeze/whisper/pause/resume`
+5. 返回信息：输出 `✓ use-fire-keeper` 或 `✗ {原因}`
 
-**文件操作**：`copy` · `write` · `read` · `mkdir` · `move` · `remove` · `rename` · `clean` · `stat` · `backup` · `recover` · `download` · `zip` · `watch` · `isExist` · `isSame`
-
-**文件匹配**：`glob(source, options)` → `ListSource`（品牌类型，可缓存，支持 fast-glob 选项）
-
-**日志**：`echo(tag, message)` · `renderPath` · `freeze` · `whisper` · `pause` · `resume`
-
-**并发**：`runConcurrent(concurrency, tasks, { stopOnError? })` → Promise<Result[]>
-
-**路径**：`normalizePath` · `root` · `home` · `getBasename` · `getDirname` · `getExtname` · `getFilename` · `getName`
-
-**工具**：`argv` · `prompt` · `wrapList` · `toArray` · `at` · `findIndex` · `flatten` · `trimEnd` · `exec` · `run` · `sleep` · `os` · `toDate`
-
-## 路径处理原则
-
-**自动前缀处理**：所有 fire-keeper API（glob/copy/read/write/isSame 等）自动处理路径前缀
-- `./file` → 项目根路径
-- `~/file` → 用户主目录
-- **禁止**：显式调用 `normalizePath('./file')` 或 `join(root(), 'file')`，直接传 `./file` 即可
-
-**路径拼接**：模板字符串 + 前缀
-- ✅ `\`./skills/${name}\`` → 项目根相对路径
-- ✅ `\`~/.claude/${name}\`` → 主目录相对路径
-- ❌ `join(root(), 'skills', name)` → root() 仅返回基础路径，不支持多参数
-
-**辅助函数**：仅用于获取基础路径或元信息
-- `root()` → 项目根绝对路径（单次使用）
-- `home()` → 用户主目录（单次使用）
-- `getName(path)` → 提取 basename/dirname/extname
-
-## 快速查找
-
-**读文件**：`read(path)` → YAML/JSON 自动解析，文本返回 string，`raw: true` 返回 Buffer
-**写文件**：`write(content, path)` → 自动创建目录
-**批量处理**：`glob(source)` → `ListSource` → `runConcurrent(5, tasks)`
-**交互提示**：`prompt({ type, message, ... })` → text/confirm/number/select/multi/toggle
-**执行命令**：`exec(cmd)` → `[exitCode, lastOutput, allOutputs]`（跨平台）
-**日志输出**：`echo(tag, message)` → 路径自动简化（`.` 项目根，`~` 主目录），`**xxx**` 洋红高亮
-
-## 关键约束
-
-- `glob` 返回 `ListSource` 品牌类型（`__IS_LISTED_AS_SOURCE__: true`），可缓存重用
-- `echo` 无匹配时提示 + 早返回（**禁 throw**）
-- `runConcurrent` 默认并发 5，默认收集所有错误抛出 AggregateError
-- `watch` chokidar v4+ 不支持 glob
-- `copy` 同目录自动加 `.copy`
-- `remove` 支持 glob，默认并发 5
-- `backup`/`recover` 生成/恢复 `.bak`，默认并发 5
-
-## 辅助文档
-
-- **reference.md**：API 详细参数和替代规则
-- **examples.md**：典型使用模板
+## 注意事项
+- `glob` 结果已是绝对路径，传入后续 API 无需再拼 root/home
+- `zip` 自动推断 `base/filename`；进度用 `console.log`
