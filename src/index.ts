@@ -1,170 +1,154 @@
 import {
-  copy,
   echo,
-  getDirname,
   getName,
   glob,
   home,
-  isSame,
+  mkdir,
   normalizePath,
-  stat,
+  remove,
 } from 'fire-keeper'
 
-import { overwriteFile, promptAction } from '../tasks/mimiko/operations.js'
+import type { Stats } from 'node:fs'
 
-const LOCAL_PATH = 'skills'
-const REMOTE_PATH = '~/.claude/skills'
-const IGNORE_PATTERNS = ['.DS_Store', 'settings.local.json', '/.system/']
+const LOCAL_PATH = './skills'
 const IS_TEST = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test'
 
-const shouldIgnore = (filePath: string): boolean =>
-  IGNORE_PATTERNS.some((pattern) => filePath.includes(pattern))
-
-const collectAllFiles = async (
-  base: string,
-  baseName: string,
-): Promise<Set<string>> => {
-  const files = await glob(`${base}/**/*`)
-  const filtered = []
-  for (const file of files) {
-    if (shouldIgnore(file)) continue
-    const result = await stat(file)
-    if (!result?.isFile()) continue
-
-    const parts = file.split(`/${baseName}/`)
-    if (parts.length <= 1) continue
-    filtered.push(parts[1])
-  }
-  return new Set(filtered)
+type SkillFolder = {
+  name: string
+  source: string
 }
 
-const syncFile = async (
-  localPath: string | null,
-  remotePath: string | null,
+type Lstat = (path: string) => Promise<Stats>
+type Readlink = (path: string) => Promise<string>
+type Symlink = (
+  target: string,
+  path: string,
+  type?: 'junction' | undefined,
+) => Promise<void>
+type Stat = (path: string) => Promise<Stats>
+
+const listSkillFolders = async (): Promise<SkillFolder[]> => {
+  const folders = await glob(`${LOCAL_PATH}/*`, { onlyDirectories: true })
+  return folders
+    .map((folder) => {
+      const { filename } = getName(folder)
+      return { name: filename, source: normalizePath(folder) }
+    })
+    .filter((folder) => folder.name && !folder.name.startsWith('.'))
+}
+
+const normalizeLinkPath = (value: string) => {
+  const normalized = normalizePath(value)
+  if (process.platform !== 'win32') return normalized
+  const withoutUncPrefix = normalized.replace(/^\/\/\?\/UNC\//i, '//')
+  const withoutPrefix = withoutUncPrefix.replace(/^\/\/\?\//i, '')
+  return withoutPrefix.toLowerCase()
+}
+
+const ensureSkillsRoot = async (targetRoot: string, lstat: Lstat) => {
+  try {
+    const rootStat = await lstat(targetRoot)
+    if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
+      await remove(targetRoot)
+      await mkdir(targetRoot)
+    }
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
+    await mkdir(targetRoot)
+  }
+}
+
+const linkSkillFolder = async (
+  sourcePath: string,
+  targetPath: string,
+  lstat: Lstat,
+  readlink: Readlink,
+  symlink: Symlink,
+  linkType: 'junction' | undefined,
 ) => {
-  if (localPath && remotePath) {
-    const localFullPath = `./${LOCAL_PATH}/${localPath}`
-    const remoteFileFullPath = `${REMOTE_PATH}/${remotePath}`
-
-    if (await isSame([localFullPath, remoteFileFullPath])) return
-
-    echo(`**${localFullPath}** is different from **${remoteFileFullPath}**`)
-
-    const action = await promptAction(localFullPath, remoteFileFullPath)
-    if (action === 'skip') return
-
-    await overwriteFile(action, localFullPath, remoteFileFullPath)
-    return
+  try {
+    const targetStat = await lstat(targetPath)
+    if (targetStat.isSymbolicLink()) {
+      const existingSource = await readlink(targetPath)
+      if (normalizeLinkPath(existingSource) === normalizeLinkPath(sourcePath))
+        return
+    }
+    await remove(targetPath)
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
   }
 
-  if (localPath) {
-    const localFullPath = `./${LOCAL_PATH}/${localPath}`
-    echo(`New local file: **${localFullPath}**`)
-    const action = await promptAction(localFullPath, '')
-    if (action === 'skip') return
+  await symlink(sourcePath, targetPath, linkType)
+  echo(`Linked **${targetPath}** -> **${sourcePath}**`)
+}
 
-    const remoteFile = `${REMOTE_PATH}/${localPath}`
-    const { dirname, filename } = getName(remoteFile)
+const cleanupBrokenSymlinks = async (
+  targetRoot: string,
+  lstat: Lstat,
+  stat: Stat,
+) => {
+  const entries = await glob(`${targetRoot}/*`, {
+    onlyDirectories: false,
+    followSymbolicLinks: false,
+  })
 
-    await copy(localFullPath, dirname, filename)
-    return
-  }
+  for (const entry of entries) {
+    const { filename } = getName(entry)
+    if (!filename || filename.startsWith('.')) continue
 
-  if (remotePath) {
-    const remoteFileFullPath = `${REMOTE_PATH}/${remotePath}`
-    echo(`New remote file: **${remoteFileFullPath}**`)
-    const action = await promptAction('', remoteFileFullPath)
-    if (action === 'skip') return
+    let entryStat: Stats
+    try {
+      entryStat = await lstat(entry)
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') continue
+      throw err
+    }
 
-    const localFile = `./${LOCAL_PATH}/${remotePath}`
-    const { dirname, filename } = getName(localFile)
+    if (!entryStat.isSymbolicLink()) continue
 
-    await copy(remoteFileFullPath, dirname, filename)
+    try {
+      await stat(entry)
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
+      await remove(entry)
+      echo(`Removed broken link **${entry}**`)
+    }
   }
 }
 
 const linkSkills = async () => {
-  const source = `${home()}/.claude/skills`
-  const targets = [
+  const skillFolders = await listSkillFolders()
+
+  const targetRoots = [
+    `${home()}/.claude/skills`,
     `${home()}/.codex/skills`,
     `${home()}/.trae-cn/skills`,
     `${home()}/.cursor/skills`,
   ]
   const linkType: 'junction' | undefined =
     process.platform === 'win32' ? 'junction' : undefined
-  const normalizeLinkPath = (value: string) => {
-    const normalized = normalizePath(value)
-    if (process.platform !== 'win32') return normalized
-    const withoutUncPrefix = normalized.replace(/^\/\/\?\/UNC\//i, '//')
-    const withoutPrefix = withoutUncPrefix.replace(/^\/\/\?\//i, '')
-    return withoutPrefix.toLowerCase()
-  }
-  const { lstat, readlink, rename, symlink, unlink } =
-    await import('node:fs/promises')
+  const { lstat, readlink, symlink, stat } = await import('node:fs/promises')
 
-  for (const target of targets) {
-    const parentDir = getDirname(target)
-    const parentStat = await stat(parentDir)
-    if (!parentStat?.isDirectory()) {
-      echo(`Skip **${target}** (missing dir **${parentDir}**)`)
-      continue
-    }
+  for (const targetRoot of targetRoots) {
+    await ensureSkillsRoot(targetRoot, lstat)
+    await cleanupBrokenSymlinks(targetRoot, lstat, stat)
 
-    let needRelink = false
-    let movedBackup: string | null = null
-    try {
-      const targetStat = await lstat(target)
-      if (targetStat.isSymbolicLink()) {
-        const existingSource = await readlink(target)
-        if (normalizeLinkPath(existingSource) === normalizeLinkPath(source)) {
-          echo(`Skip **${target}** -> **${source}** (already linked)`)
-          continue
-        }
-        await unlink(target)
-        needRelink = true
-      } else {
-        movedBackup = `${target}.bak.${Date.now()}`
-        await rename(target, movedBackup)
-        needRelink = true
-      }
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
-    }
-
-    try {
-      await symlink(source, target, linkType)
-      if (movedBackup) {
-        echo(
-          `Moved **${target}** to **${movedBackup}**, linked **${target}** -> **${source}**`,
-        )
-      } else echo(`Linked **${target}** -> **${source}**`)
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'EEXIST' && needRelink) {
-        const backup = `${target}.bak.${Date.now()}`
-        await rename(target, backup)
-        await symlink(source, target, linkType)
-        echo(
-          `Moved **${target}** to **${backup}**, linked **${target}** -> **${source}**`,
-        )
-      } else throw err
+    for (const folder of skillFolders) {
+      const targetPath = `${targetRoot}/${folder.name}`
+      await linkSkillFolder(
+        folder.source,
+        targetPath,
+        lstat,
+        readlink,
+        symlink,
+        linkType,
+      )
     }
   }
 }
 
 const main = async () => {
-  const localFiles = await collectAllFiles(`./${LOCAL_PATH}`, LOCAL_PATH)
-  const remoteFiles = await collectAllFiles(REMOTE_PATH, '.claude/skills')
-
-  const allPaths = new Set([...localFiles, ...remoteFiles])
-
-  for (const path of allPaths) {
-    const localPath = localFiles.has(path) ? path : null
-    const remotePath = remoteFiles.has(path) ? path : null
-
-    await syncFile(localPath, remotePath)
-  }
-
-  if (!IS_TEST) await linkSkills()
+  await linkSkills()
 }
 
 if (!IS_TEST) main()

@@ -1,3 +1,37 @@
+# Task Plan: Folder-level skill symlink mirroring
+
+## Goal
+Replace file-copy sync with per-folder symlink mirroring from `./skills` to
+`~/.claude/skills`, `~/.codex/skills`, `~/.cursor/skills`, `~/.trae-cn/skills`,
+including legacy cleanup for symlinked `skills` dirs and copied folders.
+
+## Phases
+- [x] Phase 1: Inspect current sync/link logic and tests; confirm scope/edge cases
+- [x] Phase 2: Refactor `src/index.ts` to link each skill folder (win32 junction)
+- [x] Phase 3: Update tests for folder-level linking and legacy cleanup
+- [x] Phase 4: Run `pnpm lint` + `pnpm exec tsc` (+ `pnpm test` if needed)
+
+## Key Questions
+1. Should we delete target folders not present in `./skills`, or leave them?
+2. Should hidden folders (for example `.claude`) be linked or skipped?
+3. Should legacy copied folders be removed or backed up before linking?
+
+## Decisions Made
+- Use fire-keeper for stat/mkdir/remove/glob/path helpers; use `node:fs/promises`
+  only for `lstat/readlink/symlink`.
+- One-way mirroring: local `./skills` is the source of truth.
+- Normalize win32 `readlink` outputs before comparisons.
+- Cleanup policy: remove only entries that collide with source folders; no backups.
+- Skip hidden directories under `./skills`.
+
+## Errors Encountered
+- None yet
+
+## Status
+**Completed** - Lint and type check executed
+
+---
+
 # Task Plan: 优化 skills 中的 skill
 
 ## Goal

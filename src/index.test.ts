@@ -1,12 +1,10 @@
-import { lstat, readlink, rename, symlink, unlink } from 'node:fs/promises'
+import { lstat, readlink, stat, symlink } from 'node:fs/promises'
 import { posix } from 'node:path'
 
-import { glob, home, stat } from 'fire-keeper'
+import { glob, home, mkdir, remove } from 'fire-keeper'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { overwriteFile, promptAction } from '../tasks/mimiko/operations.js'
-
-import main, { linkSkills } from './index.js'
+import { linkSkills } from './index.js'
 
 import type { Stats } from 'node:fs'
 
@@ -51,24 +49,29 @@ const createMockStats = (options: MockStatOptions = {}): Stats => {
   }
 }
 
-const setupMockGlob = (localPaths: string[], remotePaths: string[]) => {
+const setupMockGlob = (
+  localPaths: string[],
+  targetEntriesByRoot: Record<string, string[]> = {},
+) => {
   vi.mocked(glob).mockImplementation((input) => {
     const pattern = typeof input === 'string' ? input : input[0]
-    if (pattern.includes('skills/**/*') && !pattern.includes('.claude'))
+    if (pattern.startsWith('./skills/'))
       return Promise.resolve(localPaths as unknown as ListSource)
-    if (pattern.includes('.claude'))
-      return Promise.resolve(remotePaths as unknown as ListSource)
+
+    if (pattern.endsWith('/*')) {
+      const root = pattern.slice(0, -2)
+      const targetEntries = targetEntriesByRoot[root] ?? []
+      return Promise.resolve(targetEntries as unknown as ListSource)
+    }
+
     return Promise.resolve([] as unknown as ListSource)
   })
 }
 
-const setupMockStat = () => {
-  vi.mocked(stat).mockImplementation((path) => {
-    if (path.includes('skills') || path.includes('.claude'))
-      return Promise.resolve(createMockStats())
-
-    return Promise.resolve(null)
-  })
+const createEnoent = (): NodeJS.ErrnoException => {
+  const err = new Error('ENOENT') as NodeJS.ErrnoException
+  err.code = 'ENOENT'
+  return err
 }
 
 vi.mock('fire-keeper', async (importOriginal) => {
@@ -76,150 +79,165 @@ vi.mock('fire-keeper', async (importOriginal) => {
   const actual = await importOriginal<typeof import('fire-keeper')>()
   return {
     ...actual,
-    copy: vi.fn(),
     echo: vi.fn(),
     glob: vi.fn() as typeof glob,
     home: vi.fn(),
-    isSame: vi.fn(() => Promise.resolve(false)),
-    stat: vi.fn() as typeof stat,
+    mkdir: vi.fn(),
+    remove: vi.fn(),
   }
 })
 
 vi.mock('node:fs/promises', () => ({
   lstat: vi.fn(),
   readlink: vi.fn(),
-  rename: vi.fn(),
+  stat: vi.fn(),
   symlink: vi.fn(),
-  unlink: vi.fn(),
 }))
 
-vi.mock('../tasks/mimiko/operations.js', () => ({
-  overwriteFile: vi.fn(),
-  promptAction: vi.fn(() => Promise.resolve('skip')),
-}))
-
-describe('sync', () => {
+describe('linkSkills', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(home).mockReturnValue('/Users/test')
   })
 
-  it('should call promptAction with (local, remote) when files differ', async () => {
-    const { homedir } = await import('node:os')
-    const cwd = process.cwd()
-    const localPath = posix.join(cwd, 'skills', 'test.md')
-    const remotePath = posix.join(homedir(), '.claude', 'skills', 'test.md')
+  it('recreates symlinked roots and links non-hidden folders', async () => {
+    const localAlpha = posix.join('/repo', 'skills', 'alpha')
+    const localHidden = posix.join('/repo', 'skills', '.hidden')
 
-    setupMockGlob([localPath], [remotePath])
-    setupMockStat()
-    vi.mocked(promptAction).mockResolvedValueOnce('local <- remote')
+    setupMockGlob([localAlpha, localHidden])
 
-    await main()
+    vi.mocked(lstat).mockImplementation((path) => {
+      if (path === '/Users/test/.claude/skills') {
+        return Promise.resolve(
+          createMockStats({ isFile: false, isSymbolicLink: true }),
+        )
+      }
 
-    const { calls } = vi.mocked(promptAction).mock
-    expect(calls.length).toBeGreaterThan(0)
-    const call = calls[0]
-    expect(call[0]).toContain('skills')
-    expect(call[1]).toContain('.claude')
-  })
-
-  it('should call overwriteFile with correct action', async () => {
-    const { homedir } = await import('node:os')
-    const cwd = process.cwd()
-    const localPath = posix.join(cwd, 'skills', 'test.md')
-    const remotePath = posix.join(homedir(), '.claude', 'skills', 'test.md')
-
-    setupMockGlob([localPath], [remotePath])
-    setupMockStat()
-    vi.mocked(promptAction).mockResolvedValueOnce('local -> remote')
-
-    await main()
-
-    const { calls } = vi.mocked(overwriteFile).mock
-    expect(calls.length).toBeGreaterThan(0)
-    const call = calls[0]
-    expect(call[0]).toBe('local -> remote')
-    expect(call[1]).toContain('skills')
-    expect(call[2]).toContain('.claude')
-  })
-
-  it('should call promptAction with ("", remote) when only remote exists', async () => {
-    const { homedir } = await import('node:os')
-    const remotePath = posix.join(homedir(), '.claude', 'skills', 'test.md')
-
-    setupMockGlob([], [remotePath])
-    setupMockStat()
-    vi.mocked(promptAction).mockResolvedValueOnce('local <- remote')
-
-    await main()
-
-    const { calls } = vi.mocked(promptAction).mock
-    expect(calls.length).toBeGreaterThan(0)
-    const call = calls[0]
-    expect(call[0]).toBe('')
-    expect(call[1]).toContain('.claude')
-  })
-
-  it('should call promptAction with (local, "") when only local exists', async () => {
-    const cwd = process.cwd()
-    const localPath = posix.join(cwd, 'skills', 'test.md')
-
-    setupMockGlob([localPath], [])
-    setupMockStat()
-    vi.mocked(promptAction).mockResolvedValueOnce('local -> remote')
-
-    await main()
-
-    const { calls } = vi.mocked(promptAction).mock
-    expect(calls.length).toBeGreaterThan(0)
-    const call = calls[0]
-    expect(call[0]).toContain('skills')
-    expect(call[1]).toBe('')
-  })
-})
-
-const describeLinkSkills =
-  process.platform === 'win32' ? describe : describe.skip
-
-describeLinkSkills('linkSkills', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('treats win32 readlink output as already linked', async () => {
-    vi.mocked(home).mockReturnValue('C:/Users/test')
-    vi.mocked(stat).mockResolvedValue(
-      createMockStats({ isFile: false, isDirectory: true }),
-    )
-    vi.mocked(lstat).mockResolvedValue(
-      createMockStats({ isFile: false, isSymbolicLink: true }),
-    )
-    vi.mocked(readlink).mockResolvedValue(
-      '\\\\?\\C:\\Users\\test\\.claude\\skills',
-    )
+      return Promise.reject(createEnoent())
+    })
 
     await linkSkills()
 
-    expect(vi.mocked(unlink).mock.calls.length).toBe(0)
-    expect(vi.mocked(rename).mock.calls.length).toBe(0)
-    expect(vi.mocked(symlink).mock.calls.length).toBe(0)
+    const removeCalls = vi
+      .mocked(remove)
+      .mock.calls.map(([value]) => String(value))
+    expect(removeCalls).toContain('/Users/test/.claude/skills')
+
+    const mkdirCalls = vi
+      .mocked(mkdir)
+      .mock.calls.map(([value]) => String(value))
+    expect(mkdirCalls).toContain('/Users/test/.claude/skills')
+
+    const symlinkCalls = vi.mocked(symlink).mock.calls.map(([src, dest]) => ({
+      src: src.toString(),
+      dest: dest.toString(),
+    }))
+    expect(symlinkCalls.length).toBe(4)
+    expect(symlinkCalls.every((call) => call.src === localAlpha)).toBe(true)
+    expect(symlinkCalls.some((call) => call.dest.endsWith('/.hidden'))).toBe(
+      false,
+    )
   })
 
-  it('treats win32 UNC readlink output as already linked', async () => {
-    vi.mocked(home).mockReturnValue('\\\\server\\share\\user')
-    vi.mocked(stat).mockResolvedValue(
-      createMockStats({ isFile: false, isDirectory: true }),
-    )
-    vi.mocked(lstat).mockResolvedValue(
-      createMockStats({ isFile: false, isSymbolicLink: true }),
-    )
-    vi.mocked(readlink).mockResolvedValue(
-      '\\\\?\\UNC\\server\\share\\user\\.claude\\skills',
-    )
+  it('replaces existing copied folders with symlinks', async () => {
+    const localAlpha = posix.join('/repo', 'skills', 'alpha')
+
+    setupMockGlob([localAlpha])
+
+    vi.mocked(lstat).mockImplementation((path) => {
+      const value = path.toString()
+      if (value.endsWith('/skills')) {
+        return Promise.resolve(
+          createMockStats({ isFile: false, isDirectory: true }),
+        )
+      }
+
+      if (value.endsWith('/skills/alpha')) {
+        return Promise.resolve(
+          createMockStats({ isFile: false, isDirectory: true }),
+        )
+      }
+
+      return Promise.reject(createEnoent())
+    })
 
     await linkSkills()
 
-    expect(vi.mocked(unlink).mock.calls.length).toBe(0)
-    expect(vi.mocked(rename).mock.calls.length).toBe(0)
+    const removeCalls = vi
+      .mocked(remove)
+      .mock.calls.map(([value]) => String(value))
+    expect(removeCalls.some((value) => value.endsWith('/skills/alpha'))).toBe(
+      true,
+    )
+    expect(vi.mocked(symlink).mock.calls.length).toBe(4)
+  })
+
+  it('skips relinking when already linked', async () => {
+    const localAlpha = posix.join('/repo', 'skills', 'alpha')
+
+    setupMockGlob([localAlpha])
+    vi.mocked(readlink).mockResolvedValue(localAlpha)
+
+    vi.mocked(lstat).mockImplementation((path) => {
+      const value = path.toString()
+      if (value.endsWith('/skills')) {
+        return Promise.resolve(
+          createMockStats({ isFile: false, isDirectory: true }),
+        )
+      }
+
+      if (value.endsWith('/skills/alpha')) {
+        return Promise.resolve(
+          createMockStats({ isFile: false, isSymbolicLink: true }),
+        )
+      }
+
+      return Promise.reject(createEnoent())
+    })
+
+    await linkSkills()
+
     expect(vi.mocked(symlink).mock.calls.length).toBe(0)
+    expect(vi.mocked(remove).mock.calls.length).toBe(0)
+  })
+
+  it('removes broken symlinks in target roots', async () => {
+    const localAlpha = posix.join('/repo', 'skills', 'alpha')
+    const orphan = '/Users/test/.claude/skills/orphan'
+
+    setupMockGlob([localAlpha], {
+      '/Users/test/.claude/skills': [orphan],
+    })
+
+    vi.mocked(lstat).mockImplementation((path) => {
+      const value = path.toString()
+      if (value === '/Users/test/.claude/skills') {
+        return Promise.resolve(
+          createMockStats({ isFile: false, isDirectory: true }),
+        )
+      }
+
+      if (value === orphan) {
+        return Promise.resolve(
+          createMockStats({ isFile: false, isSymbolicLink: true }),
+        )
+      }
+
+      return Promise.reject(createEnoent())
+    })
+
+    vi.mocked(stat).mockImplementation((path) => {
+      if (path.toString() === orphan) return Promise.reject(createEnoent())
+      return Promise.resolve(
+        createMockStats({ isFile: false, isDirectory: true }),
+      )
+    })
+
+    await linkSkills()
+
+    const removeCalls = vi
+      .mocked(remove)
+      .mock.calls.map(([value]) => String(value))
+    expect(removeCalls).toContain(orphan)
   })
 })
