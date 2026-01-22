@@ -89,6 +89,7 @@ const cleanupBrokenSymlinks = async (
 ) => {
   const entries = await glob(`${targetRoot}/*`, {
     onlyDirectories: false,
+    onlyFiles: false,
     followSymbolicLinks: false,
   })
 

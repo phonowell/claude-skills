@@ -1,0 +1,23 @@
+# GitHub topics (lowercase, hyphenated)
+# 主题需小写+短横线
+
+Core topics / 核心主题:
+- <core-topic-1>
+- <core-topic-2>
+
+Domain / 领域:
+- <domain-topic-1>
+- <domain-topic-2>
+
+Task / 任务:
+- <task-topic-1>
+- <task-topic-2>
+
+Language / 语言:
+- <language-topic-1>
+
+Format / 形态:
+- <cli|sdk|library|dataset|app>
+
+Suggested final list (6-10) / 建议最终列表:
+<topic1> <topic2> <topic3> <topic4> <topic5> <topic6>

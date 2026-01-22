@@ -1,0 +1,31 @@
+# llms.txt (draft)
+Project: <repo-name>
+Repository: <repo-url>
+Homepage: <homepage-url-or-none>
+
+Summary (EN): <one-line summary>
+摘要 (ZH): <一句话简介>
+
+Primary use cases (EN):
+- <use-case-1>
+- <use-case-2>
+主要用途 (ZH):
+- <用途-1>
+- <用途-2>
+
+Keywords (EN): <keyword1>, <keyword2>, <keyword3>
+关键词 (ZH): <关键词1>, <关键词2>, <关键词3>
+
+Install (EN): <install-command>
+安装 (ZH): <安装命令>
+
+Quick usage (EN):
+- <command or snippet>
+快速使用 (ZH):
+- <命令或片段>
+
+API/Docs: <docs-url>
+Examples: <examples-url>
+License: <license-id>
+Citation: <citation-or-none>
+Contact: <issue-url-or-email>
