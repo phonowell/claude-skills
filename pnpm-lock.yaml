@@ -15,8 +15,8 @@ importers:
         specifier: ^9.39.2
         version: 9.39.2
       fire-keeper:
-        specifier: ^0.0.234
-        version: 0.0.234
+        specifier: ^0.0.235
+        version: 0.0.235
       radash:
         specifier: ^12.1.1
         version: 12.1.1
@@ -1171,8 +1171,8 @@ packages:
     resolution: {integrity: sha512-78/PXT1wlLLDgTzDs7sjq9hzz0vXD+zn+7wypEe4fXQxCmdmqfGsEPQxmiCSQI3ajFV91bVSsvNtrJRiW6nGng==}
     engines: {node: '>=10'}
 
-  fire-keeper@0.0.234:
-    resolution: {integrity: sha512-T3D2vnp3sNOUpCB3nXaHbSC/aov4dia7WvQabPJpJk20NfMzhdU18mhR8gzjidiOJVIlWiUrCODS2ALCbSsGXw==}
+  fire-keeper@0.0.235:
+    resolution: {integrity: sha512-quRH9vYffUUyBRy1PJFtaw2aqF2f/+8nCMS8MVq5WlF2OqoNTHlyVSef69QEB/ZeeWHTwWa5A8cWWj09MkBvJA==}
     engines: {node: '>=24.0.0'}
 
   flat-cache@4.0.1:
@@ -3453,7 +3453,7 @@ snapshots:
       locate-path: 6.0.0
       path-exists: 4.0.0
 
-  fire-keeper@0.0.234:
+  fire-keeper@0.0.235:
     dependencies:
       archiver: 7.0.1
       chokidar: 5.0.0

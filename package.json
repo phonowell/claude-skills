@@ -2,7 +2,7 @@
   "dependencies": {
     "clsx": "^2.1.1",
     "eslint": "^9.39.2",
-    "fire-keeper": "^0.0.234",
+    "fire-keeper": "^0.0.235",
     "radash": "^12.1.1",
     "ts-morph": "^27.0.2",
     "tsx": "^4.21.0"
