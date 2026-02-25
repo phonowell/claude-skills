@@ -1,112 +1,74 @@
-# API 参考
+# API 参考（use-fire-keeper）
+
+## 高频映射
+- 文件批处理：`glob` -> 无匹配 `echo + return` -> `runConcurrent`
+- 文件读写：`read/write`（统一解析与目录创建语义）
+- 路径归一：`normalizePath`（不要手动拼 `root()/home()`）
+- 日志与静默：`echo` + `freeze/whisper/pause/resume`
+- 外部命令：`exec`（统一跨平台行为与返回结构）
 
 ## 关键规则
-- 路径统一走 normalizePath：支持 `./` `.` `~` `..` `!` 前缀，空/空白返回 ''
-- `glob` 默认 `absolute: true` `dot: true`，返回 `ListSource`（可缓存复用）
-- 基于 glob 的 API 无匹配会 echo 并 return/undefined/null：copy/remove/clean/backup/recover/read/stat
+- 路径统一走 `normalizePath`：支持 `./` `.` `~` `..` `!`；空/空白返回 `''`
+- `glob` 默认 `absolute: true` + `dot: true`，返回可复用 `ListSource`
+- 基于 glob 的 API 在无匹配时通常会回显并早返回：`copy/remove/clean/backup/recover/read/stat`
+- `echo` 会将路径渲染为 `root->.` `home->~`，并高亮 `**xx**`
 
 ## 文件操作
-- `copy(source, target?, options?)` → Promise<void>
-  - source: string | string[]（glob onlyFiles=true）
-  - target: string | (dirname) => string | Promise<string>
-  - options: string | (filename) => string | Promise<string> | { concurrency?, filename? }
-  - 同目录默认 `.copy`
-- `write(path, content, options?)` → Promise<void>
-  - 自动创建目录，content 支持 string/Buffer/ArrayBuffer/Blob/对象(JSON)
-- `read(path, { raw? })` → Promise<unknown | undefined>
-  - glob onlyFiles=true 取首个匹配
-  - 文本扩展→string；json/yaml→object；raw→Buffer；无匹配→undefined
-- `mkdir(path | path[], { concurrency? })` → Promise<void>
-  - normalizePath + ensureDir；空输入直接返回
-- `move(source, target, { concurrency? })` → Promise<void>
-  - copy + remove
-- `remove(source, { concurrency? })` → Promise<void>
-  - glob onlyFiles=false
-- `rename(source, basename)` → Promise<void>
-  - basename only
-- `clean(source)` → Promise<void>
-  - remove 后清理空父目录
-- `stat(path)` → Promise<fs.Stats | null>
-  - glob onlyFiles=false；无匹配→null
+- `copy(source, target?, options?)` -> `Promise<void>`
+  - `source`: `string | string[]`，内部 `glob(..., { onlyFiles: true })`
+  - `target`: `string | (dirname) => string | Promise<string>`
+  - `options`: `string | (filename) => string | Promise<string> | { concurrency?, filename?, echo? }`
+  - 同目录复制默认后缀 `.copy`
+- `write(path, content, options?)` -> `Promise<void>`
+  - 自动建目录，支持 `string/Buffer/ArrayBuffer/TypedArray/Blob/object(JSON)`
+- `read(path, { raw? })` -> `Promise<unknown | undefined>`
+  - `glob(..., { onlyFiles: true })` 后取首个匹配
+  - 文本扩展返回 `string`；`json/yaml` 返回对象；`raw` 返回 `Buffer`
+- `mkdir(path | path[], { concurrency? })` -> `Promise<void>`
+- `move(source, target, { concurrency? })` -> `Promise<void>`（`copy + remove`）
+- `remove(source, { concurrency? })` -> `Promise<void>`（支持目录与通配符）
+- `rename(source, basename)` -> `Promise<void>`（basename only）
+- `clean(source)` -> `Promise<void>`（删除后继续清理空父目录）
+- `stat(path)` -> `Promise<fs.Stats | null>`（无匹配返回 `null`）
 
 ## 备份与校验
-- `backup(source, { concurrency? })` → Promise<void>
-  - 生成 `.bak`，glob onlyFiles=true
-- `recover(source, { concurrency? })` → Promise<void>
-  - 读取 `${src}.bak` → 写回 → 删除
-- `isExist(...paths)` → Promise<boolean>
-  - 禁 `*`；任一路径非法/不存在→false
-- `isSame(...paths)` → Promise<boolean>
-  - 需 ≥2 文件；size=0 或读取失败→false；Buffer.compare
+- `backup(source, { concurrency? })` -> `Promise<void>`（写入 `.bak`）
+- `recover(source, { concurrency? })` -> `Promise<void>`（读 `${src}.bak` -> 写回 -> 删除）
+- `isExist(...paths)` -> `Promise<boolean>`
+  - 路径中包含 `*` 会抛错
+  - 其他无效路径或不存在路径返回 `false`
+- `isSame(...paths)` -> `Promise<boolean>`
+  - 需要至少 2 文件；size=0 或读取失败返回 `false`
+  - 通过 `Buffer.compare` 判断内容一致性
 
 ## 网络/压缩/监听
-- `download(url, dir, filename?)` → Promise<void>
-  - filename 默认 `getFilename(url)`；空 url 会在默认参数处抛错
-  - arrayBuffer→Buffer→pipeline；自动建目录
-- `zip(source, target = '', option = '')` → Promise<void>
-  - option: string filename | { base?, filename? }
-  - base/filename 自动推断；进度用 console.log + renderPath
-- `watch(listSource, callback, { debounce? })` → unwatch
-  - debounce 默认 1000ms；仅 change；不支持 glob
+- `download(url, dir, filename?)` -> `Promise<void>`
+  - `url`/`dir` 必填；`filename` 默认 `getFilename(url)`
+  - 实现为 `arrayBuffer -> Buffer -> pipeline`，大文件注意内存
+- `zip(source, target = '', option = '')` -> `Promise<void>`
+  - `option`: `string` filename 或 `{ base?, filename? }`
+  - `base/filename` 可推断；进度输出用 `console.log + renderPath`
+- `watch(listSource, callback, { debounce? })` -> `unwatch`
+  - 基于 `chokidar@^5`，仅监听 `change`，不支持 glob，默认 debounce 1000ms
 
-## 文件匹配
-- `glob(input, options?)` → Promise<ListSource>
-  - input: string | string[] | ListSource
-  - 空输入→空 ListSource；支持 fast-glob 选项
+## 并发/CLI/工具
+- `runConcurrent(concurrency, tasks, { stopOnError? })` -> `Promise<T[]>`
+  - 结果保序；`stopOnError=true` 早停；默认聚合错误并抛 `AggregateError`
+- `exec(cmd, { echo?, silent? })` -> `Promise<[exitCode, lastOutput, allOutputs]>`
+  - Windows 用 PowerShell，其他平台用 `/bin/sh`；数组命令以 `; ` 串联
+- `prompt(options)` -> `Promise`
+  - `id` 缓存到 `./temp/cache-prompt.json`；`multi` 类型不缓存
+- `run(fn)` -> `fn()` 的返回值
+- 其他：`argv/at/findIndex/flatten/toArray/toDate/trimEnd/wrapList/os/root/home/getName*`
 
-## 并发控制
-- `runConcurrent(concurrency, tasks, { stopOnError? })` → Promise<T[]>
-  - 保序；stopOnError=true 早停；默认 AggregateError
-
-## 日志
-- `echo(message)` / `echo(type, message)`
-  - renderPath 简化 `root→.` `home→~`；`**xx**` 高亮
-  - pause/resume/freeze/whisper
-- `renderPath(path)` → string
-
-## 路径工具
-- `normalizePath(path)` → string
-  - 支持 `./` `.` `~` `..` `!`；反斜杠→`/`；trim 尾 `/`
-- `root()` → string
-  - 校验 cwd（相对/非法字符抛错），Windows 盘符保留
-- `home()` → string
-  - os.homedir() 正斜杠
-- `getName/getBasename/getDirname/getExtname/getFilename`
-  - getName 处理 UNC；getExtname('.gitignore') → ''
-
-## 工具函数
-- `argv()` → { _: [], $0, ... }
-- `prompt(options)` → Promise
-  - type: text/confirm/number/select/auto/multi/toggle
-  - id 缓存 `./temp/cache-prompt.json`；multi 不缓存
-- `wrapList(value)` → string
-- `toArray(value)` → Array
-- `at(input, ...path)` → value
-  - 数组支持负索引；对象支持 dot/多段路径
-- `findIndex(array, predicate)` → number
-- `flatten(list)` → Array
-- `trimEnd(str, chars?)` → string
-- `exec(cmd, { silent? })` → Promise<[exitCode, lastOutput, allOutputs]>
-  - Windows PowerShell / Unix sh；数组命令用 `; `
-- `run(fn)` → Result
-- `sleep(ms)` → Promise<void>
-  - 负数/NaN 归零；ms>0 输出 echo
-- `os()` → 'macos' | 'windows' | 'unknown'
-- `toDate(input)` → Date
-  - ISO 优先；连字符替换为 `/`；拒绝 <= 1970-01-01
-
-## 替代规则
-
+## 原生替代速查
 | 原生 API | fire-keeper | 备注 |
 | --- | --- | --- |
-| `fs.readFileSync` | `read(path)` | JSON/YAML 自动解析，glob 取首个匹配 |
+| `fs.readFileSync` | `read(path)` | 自动解析 JSON/YAML，支持 glob |
 | `fs.writeFileSync` | `write(path, content)` | 自动创建目录 |
-| `fs.mkdirSync` | `mkdir(path)` | Promise + 并发 |
-| `fs.copyFileSync` | `copy(src, target)` | 支持 glob + 默认 `.copy` |
+| `fs.copyFileSync` | `copy(src, target)` | 支持 glob 与 `.copy` 默认规则 |
 | `fs.rmSync` | `remove(source)` | 支持目录/通配符 |
-| `fs.statSync` | `stat(path)` | 不存在返回 null |
-| `path.normalize` | `normalizePath(path)` | 支持 `./` `~` `..` `!` |
-| `process.cwd()` | `root()` | 规范化 + 校验 |
-| `os.homedir()` | `home()` | 统一正斜杠 |
-| `child_process.exec` | `exec(cmd)` | 跨平台 + 捕获输出 |
-| `Promise.all` | `runConcurrent(n, tasks)` | 限流 + 保序 |
+| `fs.statSync` | `stat(path)` | 无匹配返回 `null` |
+| `path.normalize` | `normalizePath(path)` | 统一 `./` `~` `..` `!` 语义 |
+| `child_process.exec` | `exec(cmd)` | 跨平台 shell + tuple 输出 |
+| `Promise.all` | `runConcurrent(n, tasks)` | 限流 + 保序 + 错误策略 |

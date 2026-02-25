@@ -23,11 +23,14 @@ allowed-tools: Read, Glob, Write, Edit, Bash
 | Name | 动词+名词、小写连字符、≤64 字符 |
 | Description | 一句中文 + 英文触发词、≤256 字符、无位置标注 |
 
-**内容原则**：仅项目特定知识 · 利用上下文 · 合理压缩避免歧义 · 修正错误/矛盾/歧义/遗漏/冗余
+内容原则：仅项目特定知识 · 利用上下文 · 合理压缩避免歧义 · 修正错误/矛盾/歧义/遗漏/冗余
+附件一致性：`example.md`/`references/*` 与主文结构、返回格式、触发语义一致
 
 ## 输入/输出契约
 - 输入：目标 SKILL 路径/范围/目标/约束；是否允许拆分 references/examples/scripts
 - 输出：变更摘要 + `wc -l` + 返回信息
+- 成功：`✓ skill 优化完成`
+- 失败：`✗ 原因`
 
 ## 快速参考
 - 需求明确且单文件 → 直接优化
@@ -36,13 +39,13 @@ allowed-tools: Read, Glob, Write, Edit, Bash
 
 ## 工作流程
 
-1. 确认需求（强制）：简单（单文件+明确需求）→ `AskUserQuestion`；复杂（多文件/架构决策）→ `plan-implementation`；未确认不改；已满足需求→直接告知
+1. 确认需求（强制）：简单（单文件+明确需求）直接优化；复杂（多文件/架构决策）走 `plan-implementation`；缺口信息先补齐后再改
 2. 可选研究（仅新建 skill）：意图完全明确后，询问用户是否使用 `search-github` 搜索 ≥5 个同类项目并提炼优点；确认后再执行
-3. 定位与规划：Glob `~/.claude/skills/{name}/SKILL.md` 与 `.claude/skills/{name}/SKILL.md`；简单→单文件，复杂→SKILL.md+references/examples/templates；批量→先定统一骨架与命名/触发词兼容策略；工具权限按需提权（只读/文档/重构）
+3. 定位与规划：Glob `~/.claude/skills/{name}/SKILL.md` 与 `.claude/skills/{name}/SKILL.md`；简单→单文件，复杂→SKILL.md+references/examples/templates；批量→先定统一骨架与命名/触发词兼容策略
 4. 编写内容：套用结构模板；描述遵守“中文功能说明 + 英文触发词”一行，不用句号分隔；保持原触发语义不被改写；内容仅项目特定知识，利用上下文压缩
 5. 执行修改：先压缩后 Write；一次性 Edit 完成全部修改；符号分隔（·/→）减少行长，目标 ≤80 行
-6. 验证/超限处理：`wc -l` 确认 ≤100；清单未通过或超限→先压缩（用 `optimize-docs`），仍超→拆分 references/examples/scripts；禁止重复 Read，复用 Edit 返回的 cat -n；未满足成功标准不得返回完成
-7. 返回信息：输出 "✓ skill 优化完成" 或 "✗ 原因"
+6. 验证/超限处理：`wc -l` 确认主文 ≤100、附属 ≤200；清单未通过或超限→先压缩（用 `optimize-docs`），仍超→拆分 references/examples/scripts；确认附件与主文语义一致
+7. 返回信息：输出 `✓ skill 优化完成` 或 `✗ 原因`
 
 ## 内容模板与示例
 
@@ -67,7 +70,7 @@ Frontmatter: name + description
 - 红旗：触发语义变化/命名冲突/超限/引用缺失→停下确认
 - 缺少返回信息步骤视为未完成；批量优化时确保结构一致且命名/触发词无冲突
 - 行数冲突优先压缩，仍超再拆分 references/examples/scripts，保持主文 ≤100
-- 只保留项目特定知识，移除泛化/重复/矛盾内容
+- 只保留项目特定知识，移除泛化/重复/矛盾内容；附件必须同步更新
 
 ## 成功标准与自测
 - 结构满足模板，含何时使用/核心意图/效率优先/约束/流程/注意/检查清单，且有返回信息步骤

@@ -21,7 +21,7 @@
 1. [High] GitHub 元数据为空 (description/topics/homepage)，LLM 与搜索系统难以判断定位与领域。
 2. [High] README 缺少清晰定位/关键词/核心能力与示例，需读源码才能理解主功能。
 3. [Medium] README 命令说明与实际脚本有歧义（文档写 `pnpm task sync`，仓库无 `tasks/sync.ts`，实际可用 `pnpm sync`/`pnpm start`）。
-4. [Medium] README “可用技能”列表缺失 `agent-browser`、`optimize-github-llm-seo`、`search-github`、`use-git-worktree` 等，能力画像不完整。
+4. [Medium] README “可用技能”列表缺失 `agent-browser`、`optimize-github-llm-seo`、`search-github`、`init-worktree` 等，能力画像不完整。
 5. [Medium] 缺少 `llms.txt`/`llms.md`/README LLM 友好区块，LLM 可索引性弱。
 6. [Low] `docs/design.md` 与示例未在 README 索引；无 `LICENSE`/`CITATION`/`SECURITY`，降低复用信心。
 

@@ -1,7 +1,7 @@
 ---
 name: optimize-github-llm-seo
 description: 优化 GitHub 仓库的 LLM 可发现性并输出诊断与模板建议，use when auditing GitHub repos for LLM discovery, llms.txt/README section drafting, or topic/metadata improvement
-allowed-tools: Bash
+allowed-tools: Read, Grep, Glob, Bash, Edit
 ---
 
 # GitHub LLM "SEO" 优化器
@@ -17,18 +17,21 @@ allowed-tools: Bash
 
 ## 效率优先
 
-- `rg`/`ls`/`sed` + 静态阅读优先，必要时用 `gh` 获取元数据
+- `rg`/`ls`/`sed` + 静态阅读优先，必要时用 `gh` 读取元数据
 
 ## 核心约束
 
 - 默认只输出报告与模板，不做修改；任何编辑或 `gh repo edit` 必须先确认
 - 中文输出；保持简洁
 - 尊重仓库结构与现有约定，避免引入不必要文件
+- 若使用 `assets/*` 模板，字段与返回状态需和主文契约一致
 
 ## 输入/输出契约
 
 - 输入: 仓库路径、仓库 URL(可选)、目标受众/领域关键词、是否允许 `gh`
 - 输出: 报告(按严重度排序) + 模板草案 + 待确认的修改清单
+- 成功: `✓ 检查完成`
+- 中断: `✗ 中断：{原因}`
 
 ## 工作流程
 
@@ -41,7 +44,15 @@ allowed-tools: Bash
 7. 可选: 查看 GitHub 搜索结果用于校准摘要/关键词，仅作诊断信号
 8. 生成报告与改进建议；从 assets 模板生成草案
 9. 列出可执行修改并询问确认
-10. 返回信息: 报告+模板+下一步选项
+10. 返回信息: 报告+模板+下一步选项 + `✓ 检查完成`/`✗ 中断：{原因}`
+
+## 附件映射
+
+- `assets/REPORT_TEMPLATE.md`: 审计报告主模板
+- `assets/llms.txt`: llms.txt 草案模板
+- `assets/llms.md`: llms.md 草案模板
+- `assets/README_LLM_SEO_SECTION.md`: README 增补片段模板
+- `assets/TOPICS_TEMPLATE.txt`: topics 建议模板
 
 ## 快速参考
 
@@ -59,14 +70,12 @@ allowed-tools: Bash
 
 - 报告含: 现状摘要、问题列表、优先级、建议、模板草案
 - 未经确认不修改任何文件或远程元数据
+- 返回状态符合 `✓ 检查完成` / `✗ 中断：{原因}`
 
 ## 检查清单
 
-- [ ] README 是否有清晰一句话定位与关键词
-- [ ] 核心意图是否清晰且一致
-- [ ] 项目命名是否与核心意图/受众/关键词匹配
-- [ ] 是否有可复制的安装/使用示例
-- [ ] 是否有 API/接口说明或链接
-- [ ] 是否有示例、FAQ、限制/已知问题
-- [ ] 是否有 license、citation、contributing、security
-- [ ] 是否提供 llms.txt/llms.md 或等价说明
+- [ ] Frontmatter 完整，name/description 符合规则
+- [ ] 仅仓库搜索，CLI-only
+- [ ] 含核心意图/效率优先/输入输出契约/工作流程/返回信息步骤
+- [ ] assets 模板字段与主文契约一致
+- [ ] 行数 ≤100

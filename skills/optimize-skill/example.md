@@ -1,48 +1,34 @@
 ---
-name: data-migration-playbook
-description: 数据迁移执行手册，use when planning/executing DB migration
+name: optimize-skill-example
+description: skill 优化示例，use when refactoring SKILL.md with consistent triggers and constraints
 ---
 
-# Data Migration Playbook
+# optimize-skill 示例
 
 ## 何时使用
-- 计划或执行数据库迁移，use when planning/executing DB migration
-- 评估迁移风险、编排步骤、回滚验证
-
-## 核心意图
-- 在受控窗口完成迁移，降低风险并可审计
+- 演示如何将低质量 `SKILL.md` 重构为可执行版本
+- 需要对齐触发语义、约束、返回格式与附件一致性
 
 ## 效率优先
 - Read/Glob/Write/Edit/Bash > Task · 并行≤3 · 一次性 Edit
 
-## 核心约束
-- Runbook 可复用且可审计；仅记录项目特定步骤/脚本
-- 行数：主文 ≤100；附属文档 ≤200
+## 输入示例
 
-## 输入/输出契约
-- 输入：版本/窗口/影响面、迁移脚本、回滚条件
-- 输出：执行摘要、日志位置、未决风险/回滚结果
+```
+文件：skills/release-note/SKILL.md
+现状：129 行；description 缺英文触发词；工作流缺返回步骤
+附件：example.md 与主文触发语义不一致
+```
 
 ## 工作流程
-1. 确认需求：版本/窗口/影响面，缺失信息先问
-2. 定位资料：收集 schema 变更、依赖脚本、变更窗口
-3. 编排计划：备份→停写→迁移→验证→放行，注明超时与回滚条件
-4. 执行前检查：备份路径/权限/流量阈值已确认
-5. 执行迁移：按计划跑脚本，记录输出
-6. 验证/回滚：校验指标，失败触发回滚流程
-7. 返回信息：提供结果摘要、日志位置、未决风险
+1. `wc -l` 建基线，标记超限段与低 ROI 段
+2. 修正 frontmatter：`name` 规则、description 中英触发词同一行
+3. 补齐结构：何时使用/核心意图/效率优先/约束/I-O/流程/返回信息
+4. 同步附件：example 与主文触发语义、返回格式一致
+5. `wc -l` 复核主文 ≤100、附件 ≤200
 
-## 示例命令
-- 备份：`pg_dump ... > backup.sql`
-- 迁移：`psql -f migrations.sql`
-- 验证：`SELECT count(*) ...`
-
-## 注意事项
-- 未确认停机/写入冻结前禁止执行
-- 所有脚本需在预生产演练通过后再跑正式
-
-## 检查清单
-- [ ] 确认窗口/回滚方案
-- [ ] 备份完成且可恢复
-- [ ] 验证脚本已准备
-- [ ] 返回信息已包含结果+日志
+## 输出示例
+- ✓ skill 优化完成
+- ✓ `SKILL.md`：129 → 93 行
+- ✓ `example.md`：触发语义与返回格式已对齐
+- ✗ 原因：若触发语义冲突且无法确认

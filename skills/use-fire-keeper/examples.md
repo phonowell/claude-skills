@@ -1,9 +1,31 @@
 # 典型模板
 
-## 批量文件处理
+## 触发与返回格式
+
+### 已触发（显式要求）
+
+输入：
+`请用 fire-keeper 批量处理 ./src/**/*.ts`
+
+输出骨架：
+`✓ use-fire-keeper`
+- 触发证据：用户显式要求使用 fire-keeper
+- 选型：`glob + runConcurrent + echo`
+- 方案：给最小可执行代码
+
+### 未触发（应拒绝引入）
+
+输入：
+`帮我改个 Node 脚本`（现有代码也未使用 fire-keeper）
+
+输出骨架：
+`✗ 未触发/不适用`
+- 原因：无显式要求且无既有依赖
+
+## 批量文件处理（标准模板）
 
 ```typescript
-import { glob, runConcurrent, echo, wrapList } from 'fire-keeper'
+import { echo, glob, runConcurrent, wrapList } from 'fire-keeper'
 
 const fn = async (source: string | string[], { concurrency = 5 } = {}) => {
   const listSource = await glob(source)
@@ -23,50 +45,40 @@ const fn = async (source: string | string[], { concurrency = 5 } = {}) => {
 }
 ```
 
-## 复制与改名
+## 常见任务最小方案
+
+### 复制与改名
 
 ```typescript
 import copy from 'fire-keeper/copy.js'
 
 await copy('./src/a.ts')
 await copy('./src/a.ts', './dist')
-await copy('./src/a.ts', './dist', 'index.ts')
 await copy('./src/*.ts', './dist', {
   filename: (name) => name.replace('.ts', '.js'),
 })
 ```
 
-## 读取配置与二进制
+### 读取配置与二进制
 
 ```typescript
 import read from 'fire-keeper/read.js'
 
 const config = await read<{ port: number }>('./config.json')
 const data = await read('./data.yaml')
-const text = await read('./logs/app.txt')
 const raw = await read('./bin/data.bin', { raw: true })
 ```
 
-## 交互式提示（带缓存 id）
+### 写入对象与 TypedArray
 
 ```typescript
-import prompt from 'fire-keeper/prompt.js'
+import write from 'fire-keeper/write.js'
 
-const name = await prompt({ type: 'text', message: 'Name?', id: 'user.name' })
-const env = await prompt({
-  type: 'select',
-  message: 'Env?',
-  list: ['dev', 'prod'],
-  id: 'user.env',
-})
-const ok = await prompt({
-  type: 'confirm',
-  message: 'Continue?',
-  id: 'user.ok',
-})
+await write('./temp/config.json', { env: 'prod' })
+await write('./temp/data.bin', new Uint8Array([1, 2, 3]))
 ```
 
-## 备份与恢复
+### 备份与恢复
 
 ```typescript
 import backup from 'fire-keeper/backup.js'
@@ -76,7 +88,7 @@ await backup('./data.txt')
 await recover('./data.txt')
 ```
 
-## 下载与压缩
+### 下载与压缩
 
 ```typescript
 import download from 'fire-keeper/download.js'
@@ -86,11 +98,11 @@ await download('https://example.com/file.txt', './temp')
 await zip('./temp/file.txt', './dist', 'archive.zip')
 ```
 
-## 监听变更
+### 监听变更（change only）
 
 ```typescript
-import watch from 'fire-keeper/watch.js'
 import echo from 'fire-keeper/echo.js'
+import watch from 'fire-keeper/watch.js'
 
 const unwatch = watch(
   './temp/file.txt',
@@ -101,4 +113,13 @@ const unwatch = watch(
 )
 
 unwatch()
+```
+
+### 静默执行片段
+
+```typescript
+import echo from 'fire-keeper/echo.js'
+import read from 'fire-keeper/read.js'
+
+const raw = await echo.freeze(read('./secret.bin', { raw: true }))
 ```

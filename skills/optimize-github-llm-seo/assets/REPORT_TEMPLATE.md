@@ -27,5 +27,9 @@
 ## Proposed Edits (confirm before apply) / 待确认修改
 - <file or gh edit>: <change summary>
 
+## Status / 状态
+- ✓ 检查完成
+- ✗ 中断：<原因>
+
 ## Notes / 备注
 - <risks, assumptions, constraints>

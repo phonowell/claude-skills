@@ -1,6 +1,7 @@
 ---
 name: search-github
 description: 使用 gh CLI 搜索 GitHub 仓库并输出筛选理由，use when searching GitHub repositories with gh cli
+allowed-tools: Read, Grep, Glob, Bash, Edit
 ---
 
 # GitHub Repo Search
@@ -18,6 +19,13 @@ description: 使用 gh CLI 搜索 GitHub 仓库并输出筛选理由，use when 
 
 - gh CLI（GitHub 官方 CLI）> curl + API > browser，优先结构化 JSON
 
+## 输入/输出契约
+
+- 输入：关键词、过滤条件、结果数量、排序规则（`stars`/`updated`）
+- 输出：结果列表，含 `fullName/url/stargazersCount/createdAt/updatedAt/reason`
+- 成功：`✓ 已完成 GitHub 仓库检索`
+- 失败：`✗ 中断：{原因}`
+
 ## 前置条件
 
 - `gh auth status` 为已登录状态
@@ -28,6 +36,7 @@ description: 使用 gh CLI 搜索 GitHub 仓库并输出筛选理由，use when 
 - 只读检索，不执行任何删除/修改类 gh 命令
 - 输出字段：`fullName`/`url`/`stargazersCount`/`createdAt`/`updatedAt` + 筛选理由
 - 筛选理由必须可追溯到查询词与过滤条件
+- 若存在 `example.md`/`reference.md`，附件示例与输出格式需与主文一致
 
 ## 工作流程
 
@@ -36,6 +45,7 @@ description: 使用 gh CLI 搜索 GitHub 仓库并输出筛选理由，use when 
 3. 执行搜索：`gh search repos "<query>" --limit N --sort <stars|updated> --order desc --json fullName,url,stargazersCount,createdAt,updatedAt,description`
 4. 归纳理由：逐条说明匹配点（关键词命中/星数区间/更新时间/语言等）
 5. 返回信息：表格或列表输出，列含 `fullName/url/stargazersCount/createdAt/updatedAt/reason`，必要时补充未命中说明
+6. 状态输出：`✓ 已完成 GitHub 仓库检索` 或 `✗ 中断：{原因}`
 
 ## 语法防错
 
@@ -55,7 +65,7 @@ description: 使用 gh CLI 搜索 GitHub 仓库并输出筛选理由，use when 
 ## 注意事项 / 错误处理
 
 - 若 `gh` 未登录，先运行 `gh auth login`
-- 在有沙箱的环境中执行 `gh` 命令需申请提权
+- 若环境禁止网络或命令不可用，直接返回 `✗ 中断：{原因}`
 - 如需更高精度，优先调整查询词而不是后处理过滤
 - 结果为空时，反馈已使用的查询与建议的放宽条件
 
@@ -69,5 +79,5 @@ description: 使用 gh CLI 搜索 GitHub 仓库并输出筛选理由，use when 
 
 - [ ] Frontmatter 完整，name/description 符合规则
 - [ ] 仅仓库搜索，CLI-only
-- [ ] 含核心意图/效率优先/工作流程/返回信息步骤
+- [ ] 含核心意图/效率优先/输入输出契约/工作流程/返回信息步骤
 - [ ] 行数 ≤100
