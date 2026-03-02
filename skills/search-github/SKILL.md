@@ -7,77 +7,43 @@ allowed-tools: Read, Grep, Glob, Bash, Edit
 # GitHub Repo Search
 
 ## 何时使用
-
-- 需要在 GitHub 上按关键词/条件检索仓库并给出结果说明时
-- 仅允许使用 CLI 工具，不使用浏览器
+- 需要按关键词和过滤条件检索 GitHub 仓库
+- 需要输出可复核的筛选理由与元数据
+- 仅使用 CLI，不使用浏览器自动化
 
 ## 核心意图
-
-- 用 `gh search repos` 快速定位仓库，输出可复核的筛选理由与关键元数据
+基于 `gh search repos` 提供可复制、可追溯的候选仓库列表。
 
 ## 效率优先
+`gh search repos` > `gh api search/repositories` 降级路径
 
-- gh CLI（GitHub 官方 CLI）> curl + API > browser，优先结构化 JSON
+## 核心约束
+1. 仅搜索 repos，不查 code/issues/users
+2. 只读检索，禁止删除或修改类 gh 命令
+3. 排序参数化：`stars`/`recent-activity`/`topic-match`
+4. 输出字段必须包含 `fullName/url/stargazersCount/createdAt/updatedAt/reason/sortStrategy`
+5. 筛选理由必须可追溯到查询词与过滤条件
 
 ## 输入/输出契约
-
-- 输入：关键词、过滤条件、结果数量、排序规则（`stars`/`updated`）
-- 输出：结果列表，含 `fullName/url/stargazersCount/createdAt/updatedAt/reason`
+- 输入：关键词、过滤条件、结果数、排序策略
+- 输出：候选列表与筛选理由
 - 成功：`✓ 已完成 GitHub 仓库检索`
 - 失败：`✗ 中断：{原因}`
 
-## 前置条件
-
-- `gh auth status` 为已登录状态
-
-## 核心约束
-
-- 仅搜索仓库，不查 code/issues/users
-- 只读检索，不执行任何删除/修改类 gh 命令
-- 输出字段：`fullName`/`url`/`stargazersCount`/`createdAt`/`updatedAt` + 筛选理由
-- 筛选理由必须可追溯到查询词与过滤条件
-- 若存在 `example.md`/`reference.md`，附件示例与输出格式需与主文一致
-
 ## 工作流程
-
-1. 确认需求（强制）：查询关键词、过滤条件、结果数量、排序规则
-2. 生成查询：合并关键词与限定词（如 `language:`/`stars:`/`created:`/`pushed:`）
-3. 执行搜索：`gh search repos "<query>" --limit N --sort <stars|updated> --order desc --json fullName,url,stargazersCount,createdAt,updatedAt,description`
-4. 归纳理由：逐条说明匹配点（关键词命中/星数区间/更新时间/语言等）
-5. 返回信息：表格或列表输出，列含 `fullName/url/stargazersCount/createdAt/updatedAt/reason`，必要时补充未命中说明
-6. 状态输出：`✓ 已完成 GitHub 仓库检索` 或 `✗ 中断：{原因}`
-
-## 语法防错
-
-- 含排除条件时使用 `--`：`gh search repos -- "vector -language:java"`
-- 多词查询用引号包裹：`"vector database"`
-- PowerShell 可用 `gh --% search repos -- "vector -language:java"`
-
-## 示例
-
-- 查询：`"vector database" language:python stars:>500 pushed:>2023-01-01`
-- 命令：`gh search repos "vector database language:python stars:>500 pushed:>2023-01-01" --limit 10 --sort stars --order desc --json fullName,url,stargazersCount,createdAt,updatedAt,description`
-
-## 输出模板
-
-- reason 示例：`关键词: vector database; stars:>500; pushed:>2023-01-01; language:python`
-
-## 注意事项 / 错误处理
-
-- 若 `gh` 未登录，先运行 `gh auth login`
-- 若环境禁止网络或命令不可用，直接返回 `✗ 中断：{原因}`
-- 如需更高精度，优先调整查询词而不是后处理过滤
-- 结果为空时，反馈已使用的查询与建议的放宽条件
-
-## 成功标准与自测
-
-- 字段完整：星数/创建时间/最后更新时间/筛选理由
-- 理由可追溯、无主观评价
-- 命令可复制运行且结果与描述一致
+1. 确认参数：关键词/过滤条件/N/排序策略
+2. 组装查询：合并 `language/stars/created/pushed/topic` 限定词
+3. 排序映射：`stars -> stars`，`recent-activity -> updated`，`topic-match -> updated`（并要求查询含 `topic:`）
+4. 执行主命令：`gh search repos "<query>" --limit N --sort <mappedSort> --order desc --json ...`
+5. 失败重试：指数退避 2s/4s，共 2 次
+6. 降级执行：`gh api search/repositories -f q="<query>" -f sort=<mappedSort> ...`
+7. 归纳理由：关键词命中、活跃度、星数、topic
+8. 输出结果与状态
 
 ## 检查清单
-
-- [ ] Frontmatter 完整，name/description 符合规则
-- [ ] 仅仓库搜索，CLI-only
-- [ ] 含核心意图/效率优先/输入输出契约/工作流程/返回信息步骤
-- [ ] 行数 ≤100
+- [ ] `gh auth status` 已登录
+- [ ] 字段齐全且理由可追溯
+- [ ] 排序策略与命令映射一致
+- [ ] 已执行重试与降级策略
+- [ ] 无写操作副作用
+- [ ] 返回信息符合约定

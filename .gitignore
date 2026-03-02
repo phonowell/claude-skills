@@ -27,4 +27,5 @@ junit.xml
 *.temp
 *.tmp
 /temp
+/plans
 nul
