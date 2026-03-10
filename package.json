@@ -29,6 +29,7 @@
     "push": "pnpm task push",
     "start": "tsx src/index.ts",
     "sync": "tsx src/index.ts",
+    "tapd:archive": "node skills/tapd-fetch-and-archive/scripts/fetch-and-archive.js",
     "task": "tsx tasks/index.ts",
     "test": "vitest",
     "type-check": "tsc --noEmit"

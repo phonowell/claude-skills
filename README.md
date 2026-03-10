@@ -37,13 +37,15 @@ pnpm lint             # 代码检查与修复
 
 ## 可用技能
 
+- `agent-browser`：浏览器自动化
 - `optimize-claude-md`：优化 CLAUDE.md
-- `optimize-docs`：压缩通用文档
 - `optimize-skill`：创建/重构 skill
 - `use-fire-keeper`：文件操作/路径处理/并发任务
 - `plan-implementation`：制定实现计划
 - `review-code-changes`：代码质量审查
-- `review-dialogue-quality`：对话效率检查
+- `search-github`：GitHub 仓库检索
+- `search-skills-sh`：skills.sh 技能检索
+- `tapd-fetch-and-archive`：归档 TAPD story 正文并生成 meta
 
 ## 开发规范
 

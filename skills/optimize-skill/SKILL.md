@@ -12,7 +12,7 @@ allowed-tools: Read, Glob, Write, Edit, Bash
 - 批量统一多个 skill 的结构与触发语义
 
 ## 核心意图
-用统一骨架保持 skill 可触发、可维护、可验证。
+用统一骨架保持 skill 可触发、可维护、可验证，并降低批量演进时的误扩散。
 
 ## 效率优先
 Read/Glob/Write/Edit/Bash > Task · 并行<=3 · 一次性 Edit
@@ -27,20 +27,21 @@ Read/Glob/Write/Edit/Bash > Task · 并行<=3 · 一次性 Edit
 7. 规则分层：`optimize-skill` 的元规则仅约束优化过程；禁止无条件写入目标 skill
 8. 适用性优先：仅当目标目录真实存在对应附件时，才写入附件一致性条款
 9. 批量防扩散：先建“规则-文件适用矩阵”，未命中规则不得落入该文件
+10. 新建或重构时必须先产出“最小骨架”：frontmatter + 何时使用/核心意图/效率优先/约束/契约/流程
 
 ## 输入/输出契约
 - 输入：目标路径/范围、目标约束、是否允许拆分附件
-- 输出：变更摘要 + `wc -l` + 状态
+- 输出：变更摘要 + `wc -l` + 冲突检查结论 + 状态
 - 成功：`✓ skill 优化完成`
 - 失败：`✗ 原因`
 
 ## 工作流程
 1. 确认需求：单文件直接改；复杂场景先走 `plan-implementation`
 2. 定位文件：`~/.claude/skills/{name}/SKILL.md` 与 `.claude/skills/{name}/SKILL.md`
-3. 冲突检查：扫描现有 `name/description/use when`
+3. 冲突检查：用 `rg` 扫描现有 `name/description/use when` 与触发词
 4. 生成适用矩阵：逐文件标记哪些规则可写入（含附件规则）
-5. 生成骨架：frontmatter + 何时使用/核心意图/效率优先/约束/契约/流程
-6. 编写内容：保持原触发语义，符号压缩 `·/→`
+5. 生成最小骨架：frontmatter + 何时使用/核心意图/效率优先/约束/契约/流程
+6. 编写内容：保持原触发语义，补最小可执行示例或验证路径
 7. 一次性 Edit：批量完成写回
 8. 验证：`wc -l`、检查清单、附件一致性；批量时反向 `rg` 排查误扩散条款
 9. 超限处理：先压缩；仍超则拆分 references/examples/scripts
@@ -50,6 +51,7 @@ Read/Glob/Write/Edit/Bash > Task · 并行<=3 · 一次性 Edit
 - [ ] frontmatter 与描述格式合规
 - [ ] 含核心意图/效率优先/流程/返回信息
 - [ ] 触发语义兼容且无冲突
+- [ ] 已生成最小骨架并完成冲突检查
 - [ ] 行数合规并输出 `wc -l`
 - [ ] 附件规则仅出现在存在附件的目标 skill
 - [ ] 批量修改已做误扩散反查（`rg`）
