@@ -135,15 +135,21 @@ const isPathPresent = async (targetPath: string, lstat: Lstat) => {
 }
 
 const findExistingExternalSkillPath = async (name: string, lstat: Lstat) => {
-  const directPath = normalizePath(`${LOCAL_PATH}/external/${name}`)
-  if (await isPathPresent(directPath, lstat)) return directPath
+  const directSkillFile = normalizePath(
+    `${LOCAL_PATH}/external/${name}/SKILL.md`,
+  )
+  if (await isPathPresent(directSkillFile, lstat))
+    return normalizePath(dirname(directSkillFile))
 
-  const nestedPaths = await glob(`${LOCAL_PATH}/external/**/${name}`, {
-    onlyDirectories: true,
-  })
+  const nestedSkillFiles = await glob(
+    `${LOCAL_PATH}/external/**/${name}/SKILL.md`,
+    {
+      onlyFiles: true,
+    },
+  )
 
-  const [firstPath] = nestedPaths
-  return firstPath ? normalizePath(firstPath) : ''
+  const [firstSkillFile] = nestedSkillFiles
+  return firstSkillFile ? normalizePath(dirname(firstSkillFile)) : ''
 }
 
 const resolveProjectSkillPath = async (
@@ -294,6 +300,9 @@ const isSameDirectory = async (leftPath: string, rightPath: string) => {
   }
 }
 
+const hasSkillDefinition = (dirPath: string, lstat: Lstat) =>
+  isPathPresent(normalizePath(`${dirPath}/SKILL.md`), lstat)
+
 const moveDirectory = async (sourcePath: string, targetPath: string) => {
   const { cp, rename, rm } = await import('node:fs/promises')
   await mkdir(dirname(targetPath))
@@ -356,6 +365,16 @@ const collectGlobalState = async (
         if (await isSameDirectory(entry, destination)) {
           await remove(entry)
           echo(`Removed duplicated global skill **${entry}**`)
+          continue
+        }
+
+        if (
+          root === '.agents/skills' &&
+          (await hasSkillDefinition(entry, lstat)) &&
+          (await hasSkillDefinition(destination, lstat))
+        ) {
+          await remove(entry)
+          echo(`Reclaimed managed skill **${entry}** -> **${destination}**`)
           continue
         }
 
