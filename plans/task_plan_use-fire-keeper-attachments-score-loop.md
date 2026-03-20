@@ -1,7 +1,7 @@
-# task_plan_use-fire-keeper-attachments-score-loop
+# task_plan_fire-keeper-guide-attachments-score-loop
 
 ## 目标
-- 对 `skills/use-fire-keeper/reference.md` 与 `skills/use-fire-keeper/examples.md` 分别执行评分与优化循环
+- 对 `skills/fire-keeper-guide/reference.md` 与 `skills/fire-keeper-guide/examples.md` 分别执行评分与优化循环
 - 两个附件最终评分均 > 9.5
 
 ## 步骤与状态
@@ -21,5 +21,5 @@
 - examples.md：8.8/10 -> 9.6/10（第 1 轮达标）
 
 ## 验证
-- `wc -l skills/use-fire-keeper/reference.md` = 74（<= 200）
-- `wc -l skills/use-fire-keeper/examples.md` = 125（<= 200）
+- `wc -l skills/fire-keeper-guide/reference.md` = 74（<= 200）
+- `wc -l skills/fire-keeper-guide/examples.md` = 125（<= 200）

@@ -1,7 +1,7 @@
-# task_plan_review-code-changes-dir-score-loop
+# task_plan_code-reviewer-dir-score-loop
 
 ## 目标
-- 对 `skills/review-code-changes` 目录整体评分（`SKILL.md` + 附件检查）
+- 对 `skills/code-reviewer` 目录整体评分（`SKILL.md` + 附件检查）
 - 循环执行“优化→复评”直到分数 >9.5
 
 ## 评分规则（总分 10）

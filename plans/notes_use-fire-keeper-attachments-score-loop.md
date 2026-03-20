@@ -1,4 +1,4 @@
-# notes_use-fire-keeper-attachments-score-loop
+# notes_fire-keeper-guide-attachments-score-loop
 
 - 用户要求：reference.md 与 examples.md 也执行评分与优化循环
 - 方法：先基于实现做准确性核对，再做结构压缩与示例可执行性增强

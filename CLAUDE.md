@@ -24,6 +24,7 @@ pnpm lint         # 修复 src/**/*.{ts,tsx} tasks/**/*.ts
 pnpm task <name>  # 执行 tasks/index.ts
 pnpm task push    # 同步任务
 pnpm task sync    # 同步 skills（双向 ~/.claude/skills）
+pnpm task upstream-skills # 同步 skills.sh 上游 skill
 ```
 
 ## 目录结构
@@ -40,20 +41,20 @@ pnpm task sync    # 同步 skills（双向 ~/.claude/skills）
 ## 工作流
 
 1. 新任务 → `/plans/task_plan_{suffix}.md` → 用例 → 实现
-2. fire-keeper API（详见 use-fire-keeper skill）：glob · copy · isSame · promptAction
+2. fire-keeper API（详见 fire-keeper-guide skill）：glob · copy · isSame · promptAction
 3. 测试 → `pnpm lint` → 提交
 
 ## Skill 使用
 
 - agent-browser：浏览器自动化
-- optimize-claude-md：优化 CLAUDE.md
-- optimize-skill：创建/重构 skill
-- use-fire-keeper：文件操作/路径处理/并发任务
-- plan-implementation：制定实现计划
-- review-code-changes：代码质量审查
-- search-github：GitHub 仓库检索
+- claude-md-improver：审查并改进 `CLAUDE.md`
+- github：GitHub CLI 工作流
+- skill-creator：创建/更新/评测 skill
+- fire-keeper-guide：文件操作/路径处理/并发任务
+- implementation-planner：制定实现计划
+- code-reviewer：代码质量审查
 - search-skills-sh：skills.sh 技能检索
-- tapd-fetch-and-archive：归档 TAPD story 原始正文并生成 meta
+- tapd-story-archiver：归档 TAPD story 原始正文并生成 meta
 
 ## 代码规范
 

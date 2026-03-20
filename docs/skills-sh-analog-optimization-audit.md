@@ -30,12 +30,13 @@
 - 增加失败恢复分支（rebase 冲突/目录残留/重复槽位）
 - 相关性：高
 
-### optimize-claude-md
+### claude-md-improver
 - 查询词：`claude md optimization`
 - 同类技能：
 - `daymade/claude-code-skills@claude-md-progressive-disclosurer`（93）https://skills.sh/daymade/claude-code-skills/claude-md-progressive-disclosurer
 - `adaptationio/skrillz@auto-claude-optimization`（14）https://skills.sh/adaptationio/skrillz/auto-claude-optimization
 - `adaptationio/skrillz@claude-cost-optimization`（12）https://skills.sh/adaptationio/skrillz/claude-cost-optimization
+- 当前替代：`anthropics/claude-plugins-official@claude-md-improver` https://skills.sh/anthropics/claude-plugins-official/claude-md-improver
 - 可参考优化点：
 - 增加“信息渐进披露层级检查”清单（核心/扩展/附录）
 - 增加 token 成本前后对比字段（压缩前后行数与估算 token）
@@ -74,7 +75,7 @@
 - 增加“最小模板生成”输出（frontmatter+流程骨架）减少手写偏差
 - 相关性：中
 
-### plan-implementation
+### implementation-planner
 - 查询词：`implementation planning`
 - 同类技能：
 - `masayuki-kono/agent-skills@implementation-plan`（33）https://skills.sh/masayuki-kono/agent-skills/implementation-plan
@@ -85,7 +86,7 @@
 - 增加每阶段退出条件与回滚条件，降低执行中漂移
 - 相关性：高
 
-### review-code-changes
+### code-reviewer
 - 查询词：`code review`
 - 同类技能：
 - `obra/superpowers@requesting-code-review`（14.4K）https://skills.sh/obra/superpowers/requesting-code-review
@@ -129,7 +130,7 @@
 - 增加结果可信度标签（高安装量/关键词强匹配/仅元信息）
 - 相关性：高
 
-### use-fire-keeper
+### fire-keeper-guide
 - 查询词：`filesystem operations`
 - 同类技能：
 - `oimiragieo/agent-studio@filesystem`（41）https://skills.sh/oimiragieo/agent-studio/filesystem
@@ -141,4 +142,4 @@
 - 相关性：中
 
 ## 备注
-- `audit-skill-lifecycle` 与 `use-fire-keeper` 在 skills.sh 上直接同构技能较少，结论偏“治理模式/文件操作模式”相似，不等于功能完全同构。
+- `audit-skill-lifecycle` 与 `fire-keeper-guide` 在 skills.sh 上直接同构技能较少，结论偏“治理模式/文件操作模式”相似，不等于功能完全同构。

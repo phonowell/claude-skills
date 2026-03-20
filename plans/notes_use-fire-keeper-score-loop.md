@@ -1,4 +1,4 @@
-# notes_use-fire-keeper-score-loop
+# notes_fire-keeper-guide-score-loop
 
 - 用户要求：先打分，再循环优化评分，直到 > 9.5
 - 采用策略：以真实代码为准校正事实，再压缩结构提高可执行性

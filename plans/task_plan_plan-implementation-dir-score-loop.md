@@ -1,7 +1,7 @@
-# task_plan_plan-implementation-dir-score-loop
+# task_plan_implementation-planner-dir-score-loop
 
 ## 目标
-- 对 `skills/plan-implementation` 目录整体评分（`SKILL.md` + 附件）
+- 对 `skills/implementation-planner` 目录整体评分（`SKILL.md` + 附件）
 - 循环执行“优化→复评”直到分数 >9.5
 
 ## 评分规则（总分 10）

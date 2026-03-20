@@ -1,7 +1,7 @@
-# task_plan_use-fire-keeper-score-loop
+# task_plan_fire-keeper-guide-score-loop
 
 ## 目标
-- 对 `skills/use-fire-keeper/SKILL.md` 进行十分制评分
+- 对 `skills/fire-keeper-guide/SKILL.md` 进行十分制评分
 - 循环执行“优化→复评”，直到得分 > 9.5
 
 ## 步骤与状态
@@ -22,4 +22,4 @@
 - 迭代 v2：9.7/10（补充触发反例+需求映射+流程收敛，达到目标）
 
 ## 验证
-- `wc -l skills/use-fire-keeper/SKILL.md` = 68（<= 100）
+- `wc -l skills/fire-keeper-guide/SKILL.md` = 68（<= 100）

@@ -1,243 +1,253 @@
-import { lstat, readlink, stat, symlink } from 'node:fs/promises'
-import { posix } from 'node:path'
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readlink,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
-import { glob, home, mkdir, remove } from 'fire-keeper'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { echo } from 'fire-keeper'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { linkSkills } from './index.js'
-
-import type { Stats } from 'node:fs'
-
-type MockStatOptions = {
-  isFile?: boolean
-  isDirectory?: boolean
-  isSymbolicLink?: boolean
-}
-
-type ListSource = string[] & {
-  __IS_LISTED_AS_SOURCE__: true
-}
-
-const createMockStats = (options: MockStatOptions = {}): Stats => {
-  const { isFile = true, isDirectory = false, isSymbolicLink = false } = options
-  return {
-    isFile: () => isFile,
-    isDirectory: () => isDirectory,
-    isBlockDevice: () => false,
-    isCharacterDevice: () => false,
-    isSymbolicLink: () => isSymbolicLink,
-    isFIFO: () => false,
-    isSocket: () => false,
-    dev: 0,
-    ino: 0,
-    mode: 0,
-    nlink: 0,
-    uid: 0,
-    gid: 0,
-    rdev: 0,
-    size: 0,
-    blksize: 0,
-    blocks: 0,
-    atimeMs: 0,
-    mtimeMs: 0,
-    ctimeMs: 0,
-    birthtimeMs: 0,
-    atime: new Date(),
-    mtime: new Date(),
-    ctime: new Date(),
-    birthtime: new Date(),
-  }
-}
-
-const setupMockGlob = (
-  localPaths: string[],
-  targetEntriesByRoot: Record<string, string[]> = {},
-) => {
-  vi.mocked(glob).mockImplementation((input) => {
-    const pattern = typeof input === 'string' ? input : input[0]
-    if (pattern.startsWith('./skills/'))
-      return Promise.resolve(localPaths as unknown as ListSource)
-
-    if (pattern.endsWith('/*')) {
-      const root = pattern.slice(0, -2)
-      const targetEntries = targetEntriesByRoot[root] ?? []
-      return Promise.resolve(targetEntries as unknown as ListSource)
-    }
-
-    return Promise.resolve([] as unknown as ListSource)
-  })
-}
-
-const createEnoent = (): NodeJS.ErrnoException => {
-  const err = new Error('ENOENT') as NodeJS.ErrnoException
-  err.code = 'ENOENT'
-  return err
-}
+const state = vi.hoisted(() => ({ homeDir: '' }))
 
 vi.mock('fire-keeper', async (importOriginal) => {
-  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-  const actual = await importOriginal<typeof import('fire-keeper')>()
+  const actual = await importOriginal()
+  if (!actual || typeof actual !== 'object')
+    throw new TypeError('invalid fire-keeper module')
   return {
     ...actual,
     echo: vi.fn(),
-    glob: vi.fn() as typeof glob,
-    home: vi.fn(),
-    mkdir: vi.fn(),
-    remove: vi.fn(),
+    home: vi.fn(() => state.homeDir),
   }
 })
 
-vi.mock('node:fs/promises', () => ({
-  lstat: vi.fn(),
-  readlink: vi.fn(),
-  stat: vi.fn(),
-  symlink: vi.fn(),
-}))
+import { manageSkills } from './index.js'
 
-describe('linkSkills', () => {
-  beforeEach(() => {
+const noopSyncExternal = () => Promise.resolve()
+
+const createSkill = async (basePath: string, name: string, content: string) => {
+  const skillPath = join(basePath, name)
+  await mkdir(skillPath, { recursive: true })
+  await writeFile(join(skillPath, 'SKILL.md'), content)
+  return skillPath
+}
+
+const expectSymlinkTarget = async (targetPath: string, sourcePath: string) => {
+  const stats = await lstat(targetPath)
+  expect(stats.isSymbolicLink()).toBe(true)
+  expect(await realpath(targetPath)).toBe(await realpath(sourcePath))
+  expect(await realpath(await readlink(targetPath))).toBe(
+    await realpath(sourcePath),
+  )
+}
+
+describe('manageSkills', () => {
+  let currentCwd = ''
+  let repoDir = ''
+  let homeDir = ''
+
+  beforeEach(async () => {
     vi.clearAllMocks()
-    vi.mocked(home).mockReturnValue('/Users/test')
+    currentCwd = process.cwd()
+    repoDir = await mkdtemp(join(tmpdir(), 'skill-manager-repo-'))
+    homeDir = await mkdtemp(join(tmpdir(), 'skill-manager-home-'))
+    state.homeDir = homeDir
+    await mkdir(join(repoDir, 'skills', 'local'), { recursive: true })
+    await mkdir(join(repoDir, 'skills', 'external'), { recursive: true })
+    process.chdir(repoDir)
   })
 
-  it('recreates symlinked roots and links non-hidden folders', async () => {
-    const localAlpha = posix.join('/repo', 'skills', 'alpha')
-    const localHidden = posix.join('/repo', 'skills', '.hidden')
+  afterEach(async () => {
+    process.chdir(currentCwd)
+    await rm(repoDir, { force: true, recursive: true })
+    await rm(homeDir, { force: true, recursive: true })
+  })
 
-    setupMockGlob([localAlpha, localHidden])
+  it('imports a real global skill into external and relinks all standard roots', async () => {
+    await createSkill(
+      join(homeDir, '.claude', 'skills'),
+      'custom-skill',
+      'global',
+    )
 
-    vi.mocked(lstat).mockImplementation((path) => {
-      if (path === '/Users/test/.claude/skills') {
-        return Promise.resolve(
-          createMockStats({ isFile: false, isSymbolicLink: true }),
-        )
-      }
+    const syncExternal = vi.fn(noopSyncExternal)
 
-      return Promise.reject(createEnoent())
-    })
+    await manageSkills(syncExternal)
 
-    await linkSkills()
+    const externalSkill = join(repoDir, 'skills', 'external', 'custom-skill')
+    await expectSymlinkTarget(
+      join(homeDir, '.claude', 'skills', 'custom-skill'),
+      externalSkill,
+    )
+    await expectSymlinkTarget(
+      join(homeDir, '.codex', 'skills', 'custom-skill'),
+      externalSkill,
+    )
+    await expectSymlinkTarget(
+      join(homeDir, '.cursor', 'skills', 'custom-skill'),
+      externalSkill,
+    )
+    await expectSymlinkTarget(
+      join(homeDir, '.trae-cn', 'skills', 'custom-skill'),
+      externalSkill,
+    )
+    expect(syncExternal).toHaveBeenCalledTimes(1)
+  })
 
-    const removeCalls = vi
-      .mocked(remove)
-      .mock.calls.map(([value]) => String(value))
-    expect(removeCalls).toContain('/Users/test/.claude/skills')
+  it('keeps repo-created local skills in local when relinking', async () => {
+    const localSkill = await createSkill(
+      join(repoDir, 'skills', 'local'),
+      'custom-local',
+      'repo-local',
+    )
+    await createSkill(
+      join(homeDir, '.claude', 'skills'),
+      'custom-local',
+      'repo-local',
+    )
 
-    const mkdirCalls = vi
-      .mocked(mkdir)
-      .mock.calls.map(([value]) => String(value))
-    expect(mkdirCalls).toContain('/Users/test/.claude/skills')
+    await manageSkills(noopSyncExternal)
 
-    const symlinkCalls = vi.mocked(symlink).mock.calls.map(([src, dest]) => ({
-      src: src.toString(),
-      dest: dest.toString(),
-    }))
-    expect(symlinkCalls.length).toBe(4)
-    expect(symlinkCalls.every((call) => call.src === localAlpha)).toBe(true)
-    expect(symlinkCalls.some((call) => call.dest.endsWith('/.hidden'))).toBe(
-      false,
+    await expectSymlinkTarget(
+      join(homeDir, '.claude', 'skills', 'custom-local'),
+      localSkill,
     )
   })
 
-  it('replaces existing copied folders with symlinks', async () => {
-    const localAlpha = posix.join('/repo', 'skills', 'alpha')
-
-    setupMockGlob([localAlpha])
-
-    vi.mocked(lstat).mockImplementation((path) => {
-      const value = path.toString()
-      if (value.endsWith('/skills')) {
-        return Promise.resolve(
-          createMockStats({ isFile: false, isDirectory: true }),
-        )
-      }
-
-      if (value.endsWith('/skills/alpha')) {
-        return Promise.resolve(
-          createMockStats({ isFile: false, isDirectory: true }),
-        )
-      }
-
-      return Promise.reject(createEnoent())
-    })
-
-    await linkSkills()
-
-    const removeCalls = vi
-      .mocked(remove)
-      .mock.calls.map(([value]) => String(value))
-    expect(removeCalls.some((value) => value.endsWith('/skills/alpha'))).toBe(
-      true,
+  it('replaces identical system directories with symlinks to project external skills', async () => {
+    const externalSkill = await createSkill(
+      join(repoDir, 'skills', 'external', 'anthropics'),
+      'skill-creator',
+      'same-content',
     )
-    expect(vi.mocked(symlink).mock.calls.length).toBe(4)
+    await createSkill(
+      join(homeDir, '.codex', 'skills', '.system'),
+      'skill-creator',
+      'same-content',
+    )
+
+    await manageSkills(noopSyncExternal)
+
+    await expectSymlinkTarget(
+      join(homeDir, '.codex', 'skills', '.system', 'skill-creator'),
+      externalSkill,
+    )
+    await expectSymlinkTarget(
+      join(homeDir, '.claude', 'skills', 'skill-creator'),
+      externalSkill,
+    )
   })
 
-  it('skips relinking when already linked', async () => {
-    const localAlpha = posix.join('/repo', 'skills', 'alpha')
+  it('replaces conflicting system directories with project external skills', async () => {
+    const externalSkill = await createSkill(
+      join(repoDir, 'skills', 'external', 'openai'),
+      'skill-installer',
+      'repo-version',
+    )
+    await createSkill(
+      join(homeDir, '.codex', 'skills', '.system'),
+      'skill-installer',
+      'system-version',
+    )
 
-    setupMockGlob([localAlpha])
-    vi.mocked(readlink).mockResolvedValue(localAlpha)
+    await manageSkills(noopSyncExternal)
 
-    vi.mocked(lstat).mockImplementation((path) => {
-      const value = path.toString()
-      if (value.endsWith('/skills')) {
-        return Promise.resolve(
-          createMockStats({ isFile: false, isDirectory: true }),
-        )
-      }
-
-      if (value.endsWith('/skills/alpha')) {
-        return Promise.resolve(
-          createMockStats({ isFile: false, isSymbolicLink: true }),
-        )
-      }
-
-      return Promise.reject(createEnoent())
-    })
-
-    await linkSkills()
-
-    expect(vi.mocked(symlink).mock.calls.length).toBe(0)
-    expect(vi.mocked(remove).mock.calls.length).toBe(0)
+    await expectSymlinkTarget(
+      join(homeDir, '.codex', 'skills', '.system', 'skill-installer'),
+      externalSkill,
+    )
+    expect(
+      vi
+        .mocked(echo)
+        .mock.calls.some(([message]) =>
+          String(message).includes('Replaced system skill'),
+        ),
+    ).toBe(true)
   })
 
-  it('removes broken symlinks in target roots', async () => {
-    const localAlpha = posix.join('/repo', 'skills', 'alpha')
-    const orphan = '/Users/test/.claude/skills/orphan'
+  it('keeps existing external placement for system-only skills', async () => {
+    const externalSkill = await createSkill(
+      join(repoDir, 'skills', 'external', 'openai'),
+      'openai-docs',
+      'system-docs',
+    )
+    await createSkill(
+      join(homeDir, '.codex', 'skills', '.system'),
+      'openai-docs',
+      'system-docs',
+    )
 
-    setupMockGlob([localAlpha], {
-      '/Users/test/.claude/skills': [orphan],
-    })
+    await manageSkills(noopSyncExternal)
 
-    vi.mocked(lstat).mockImplementation((path) => {
-      const value = path.toString()
-      if (value === '/Users/test/.claude/skills') {
-        return Promise.resolve(
-          createMockStats({ isFile: false, isDirectory: true }),
-        )
-      }
+    await expectSymlinkTarget(
+      join(homeDir, '.codex', 'skills', '.system', 'openai-docs'),
+      externalSkill,
+    )
+    await expect(
+      lstat(join(repoDir, 'skills', 'local', 'openai-docs')),
+    ).rejects.toThrow()
+  })
 
-      if (value === orphan) {
-        return Promise.resolve(
-          createMockStats({ isFile: false, isSymbolicLink: true }),
-        )
-      }
+  it('keeps conflicting real directories in place', async () => {
+    const localSkill = await createSkill(
+      join(repoDir, 'skills', 'local'),
+      'custom-skill',
+      'repo-version',
+    )
+    const globalSkill = await createSkill(
+      join(homeDir, '.claude', 'skills'),
+      'custom-skill',
+      'global-version',
+    )
 
-      return Promise.reject(createEnoent())
-    })
+    await manageSkills(noopSyncExternal)
 
-    vi.mocked(stat).mockImplementation((path) => {
-      if (path.toString() === orphan) return Promise.reject(createEnoent())
-      return Promise.resolve(
-        createMockStats({ isFile: false, isDirectory: true }),
-      )
-    })
+    const stats = await lstat(globalSkill)
+    expect(stats.isDirectory()).toBe(true)
+    expect(stats.isSymbolicLink()).toBe(false)
+    await expectSymlinkTarget(
+      join(homeDir, '.codex', 'skills', 'custom-skill'),
+      localSkill,
+    )
+  })
 
-    await linkSkills()
+  it('relinks broken symlinks to the current flat project path', async () => {
+    const externalSkill = await createSkill(
+      join(repoDir, 'skills', 'external', 'vercel-labs'),
+      'agent-browser',
+      'external-version',
+    )
+    const brokenTarget = join(
+      repoDir,
+      'skills',
+      'external',
+      'shared',
+      'agent-browser',
+    )
+    await mkdir(join(homeDir, '.claude', 'skills'), { recursive: true })
+    await symlink(
+      brokenTarget,
+      join(homeDir, '.claude', 'skills', 'agent-browser'),
+    )
 
-    const removeCalls = vi
-      .mocked(remove)
-      .mock.calls.map(([value]) => String(value))
-    expect(removeCalls).toContain(orphan)
+    await manageSkills(noopSyncExternal)
+
+    await expectSymlinkTarget(
+      join(homeDir, '.claude', 'skills', 'agent-browser'),
+      externalSkill,
+    )
+    expect(
+      vi
+        .mocked(echo)
+        .mock.calls.some(([message]) =>
+          String(message).includes('Removed broken link'),
+        ),
+    ).toBe(true)
   })
 })
