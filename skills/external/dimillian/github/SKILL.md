@@ -1,6 +1,6 @@
 ---
 name: github
-description: "Interact with GitHub using the `gh` CLI. Use `gh issue`, `gh pr`, `gh run`, and `gh api` for issues, PRs, CI runs, and advanced queries."
+description: "Interact with GitHub using the `gh` CLI. Use `gh issue`, `gh pr`, `gh run`, and `gh api` for issues, PRs, CI runs, and advanced queries. Use when the user asks about GitHub issues, pull requests, workflows, or wants to interact with GitHub repositories from the command line — including tasks like check CI status, create PR, list issues, or query the GitHub API."
 ---
 
 # GitHub Skill
@@ -28,6 +28,27 @@ View logs for failed steps only:
 ```bash
 gh run view <run-id> --repo owner/repo --log-failed
 ```
+
+### Debugging a CI Failure
+
+Follow this sequence to investigate a failing CI run:
+
+1. **Check PR status** — identify which checks are failing:
+   ```bash
+   gh pr checks 55 --repo owner/repo
+   ```
+2. **List recent runs** — find the relevant run ID:
+   ```bash
+   gh run list --repo owner/repo --limit 10
+   ```
+3. **View the failed run** — see which jobs and steps failed:
+   ```bash
+   gh run view <run-id> --repo owner/repo
+   ```
+4. **Fetch failure logs** — get the detailed output for failed steps:
+   ```bash
+   gh run view <run-id> --repo owner/repo --log-failed
+   ```
 
 ## API for Advanced Queries
 
