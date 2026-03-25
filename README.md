@@ -46,6 +46,7 @@ pnpm lint             # 代码检查与修复
 - `skills/external/anthropics/claude-plugins-official/claude-md-improver`
 - `skills/external/anthropics/skill-creator`
 - `skills/external/dimillian/github`
+- `skills/external/obra/superpowers/*`
 - `skills/external/openai/openai-docs`
 - `skills/external/openai/skill-installer`
 
@@ -60,6 +61,7 @@ pnpm lint             # 代码检查与修复
 - `agent-browser`：浏览器自动化
 - `claude-md-improver`：审查并改进 `CLAUDE.md`
 - `github`：GitHub CLI 工作流
+- `superpowers`：通用开发流程 skill 包
 - `skill-creator`：创建/更新/评测 skill
 - `fire-keeper-guide`：文件操作/路径处理/并发任务
 - `implementation-planner`：制定实现计划
